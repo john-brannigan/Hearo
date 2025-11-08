@@ -5,7 +5,7 @@ import { textToSpeech } from '@/components/elevenlabs/tts';
 import { startRecording, stopRecording, requestPermissions } from '@/components/elevenlabs/stt-native';
 import sendImageWithPrompt from '@/components/google-image-understanding/image-request';
 import * as FileSystem from 'expo-file-system';
-import sendImageWithPrompt from '@/components/google-image-understanding/image-request';
+
 
 export default function TTSScreen() {
   const params = useLocalSearchParams();
@@ -18,6 +18,8 @@ export default function TTSScreen() {
   const [recordedAudioUri, setRecordedAudioUri] = useState<string>('');
   const [transcribedText, setTranscribedText] = useState<string>('');
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [aiResponse, setAiResponse] = useState<string>('');
+  const [isAnalyzingImage, setIsAnalyzingImage] = useState(false);
 
   console.log('TTS Screen loaded with photo:', photoUri);
 
@@ -637,3 +639,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+function setImageAnswer(arg0: string) {
+    // No-op: This functionality is handled by aiResponse state
+    // Originally intended to clear image analysis results
+}
