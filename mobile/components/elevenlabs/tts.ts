@@ -3,12 +3,13 @@ import * as FileSystem from 'expo-file-system/next';
 import * as Speech from 'expo-speech';
 import { ELEVENLABS_API_KEY } from '@env';
 
-// Get the cache directory path
+const ELEVENLABS_MODEL = "eleven_turbo_v2";
+
+const VOICE_ID = "iP95p4xoKVk53GoZ742B";
+
 const getCacheDirectory = () => {
   return FileSystem.Paths.cache + '/';
 };
-
-const VOICE_ID = "iP95p4xoKVk53GoZ742B";
 
 export async function textToSpeech(text: string): Promise<string> {
   try {
@@ -43,7 +44,7 @@ async function textToSpeechElevenLabs(text: string): Promise<string> {
       },
       body: JSON.stringify({
         text,
-        model_id: 'eleven_monolingual_v1',
+        model_id: ELEVENLABS_MODEL,
         voice_settings: { stability: 0.5, similarity_boost: 0.5 },
       }),
     }
@@ -61,39 +62,20 @@ async function textToSpeechElevenLabs(text: string): Promise<string> {
   // Save to temporary file
   const fileName = `temp-audio-${Date.now()}.mp3`;
   const fileUri = getCacheDirectory() + fileName;
-  
+
   const file = new FileSystem.File(fileUri);
   await file.write(audioBytes);
-  
-  console.log('Saving audio to:', fileUri);
 
-  console.log('Playing audio...');
-  const { sound } = await Audio.Sound.createAsync(
-    { uri: fileUri },
-    { shouldPlay: true }
-  );
-
-  await new Promise<void>((resolve) => {
-    sound.setOnPlaybackStatusUpdate((status) => {
-      if (status.isLoaded && status.didJustFinish) resolve();
-    });
-  });
-
-  await sound.unloadAsync();
-  console.log('Audio saved at:', fileUri);
+  console.log('Audio file saved at:', fileUri);
   return fileUri;
 }
 
-// Native fallback
+// Fallback native text-to-speech using Expo Speech
 async function textToSpeechNative(text: string): Promise<string> {
-  await new Promise<void>((resolve, reject) => {
+  return new Promise((resolve) => {
     Speech.speak(text, {
-      language: 'en-US',
-      pitch: 1.0,
-      rate: 0.9,
-      onDone: resolve,
-      onError: reject,
+      onDone: () => resolve('native'),
+      language: 'en',
     });
   });
-  return 'native-tts-dummy-path.mp3';
 }
