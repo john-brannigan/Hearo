@@ -1,8 +1,9 @@
 // ...existing code...
 import { GoogleGenAI } from '@google/genai';
+import { GOOGLE_CLOUD_LOCATION, GOOGLE_CLOUD_PROJECT } from '@env';
 
-const DEFAULT_LOCATION = 'global';
-const DEFAULT_PROJECT = 'aiatl2025';
+const DEFAULT_LOCATION = GOOGLE_CLOUD_LOCATION;
+const DEFAULT_PROJECT = GOOGLE_CLOUD_PROJECT;
 
 const PROMPT = `You are describing what is in front of a blind person. Speak directly to them, using phrases like 'you are seeing…' or 'in front of you…'. Describe the scene in detail. Avoid unnecessary technical jargon. Make the description clear and easy to understand.`;
 

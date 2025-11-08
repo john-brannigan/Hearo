@@ -1,5 +1,6 @@
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
+import { ELEVENLABS_API_KEY } from '@env';
 
 export interface SpeechRecognitionResult {
   transcript: string;
@@ -64,8 +65,44 @@ export async function stopRecording(): Promise<string | null> {
   }
 }
 
-// Dummy hook for compatibility
+export async function transcribeAudio(audioUri: string): Promise<string> {
+  try {
+    console.log("Reading audio file...");
+    const audioBase64 = await FileSystem.readAsStringAsync(audioUri, {
+      encoding: 'base64',
+    });
+
+    const audioData = Uint8Array.from(atob(audioBase64), c => c.charCodeAt(0));
+    const blob = new Blob([audioData], { type: 'audio/m4a' });
+
+    const formData = new FormData();
+    formData.append('file', blob, 'audio.m4a');
+    formData.append('model_id', 'scribe_v1');
+
+    console.log("Calling ElevenLabs STT API...");
+    const response = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
+      method: 'POST',
+      headers: {
+        'xi-api-key': ELEVENLABS_API_KEY,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`STT request failed: ${response.status} ${errorText}`);
+    }
+
+    const data = await response.json();
+    console.log("Transcription successful:", data.text);
+    return data.text;
+
+  } catch (error) {
+    console.error("Transcription error:", error);
+    throw error;
+  }
+}
+
 export function useSpeechRecognitionEvent(event: string, callback: (data: any) => void) {
-  // This is a placeholder - real speech recognition requires native module
   console.log("Speech recognition event listener:", event);
 }
