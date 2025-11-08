@@ -1,7 +1,12 @@
 import { Audio } from 'expo-av';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/next';
 import * as Speech from 'expo-speech';
 import { ELEVENLABS_API_KEY } from '@env';
+
+// Get the cache directory path
+const getCacheDirectory = () => {
+  return FileSystem.Paths.cache + '/';
+};
 
 const VOICE_ID = "iP95p4xoKVk53GoZ742B";
 
@@ -51,17 +56,16 @@ async function textToSpeechElevenLabs(text: string): Promise<string> {
   }
 
   const arrayBuffer = await response.arrayBuffer();
-  const base64Audio = btoa(
-    String.fromCharCode(...new Uint8Array(arrayBuffer))
-  );
+  const audioBytes = new Uint8Array(arrayBuffer);
 
   // Save to temporary file
-  const fileUri = `${(FileSystem as any).documentDirectory}temp-audio-${Date.now()}.mp3`;
+  const fileName = `temp-audio-${Date.now()}.mp3`;
+  const fileUri = getCacheDirectory() + fileName;
+  
+  const file = new FileSystem.File(fileUri);
+  await file.write(audioBytes);
+  
   console.log('Saving audio to:', fileUri);
-
-  await FileSystem.writeAsStringAsync(fileUri, base64Audio, {
-    encoding: (FileSystem as any).EncodingType.Base64,
-  });
 
   console.log('Playing audio...');
   const { sound } = await Audio.Sound.createAsync(
