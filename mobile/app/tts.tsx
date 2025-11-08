@@ -2,10 +2,9 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { textToSpeech } from '@/components/elevenlabs/tts';
-import { startRecording, stopRecording, requestPermissions } from '@/components/elevenlabs/stt-native';
+import { startRecording, stopRecording, requestPermissions, transcribeAudio } from '@/components/elevenlabs/stt-native';
 import sendImageWithPrompt from '@/components/google-image-understanding/image-request';
 import { uploadImageToBackend } from '@/components/google-image-understanding/upload-image';
-import * as FileSystem from 'expo-file-system';
 
 export default function TTSScreen() {
   const navigation = useNavigation();
@@ -109,9 +108,8 @@ export default function TTSScreen() {
       console.log('Analyzing image with Google Gemini...');
       
       // Use the gs:// or https:// URI from Google Cloud Storage
-      const prompt = "Describe what you see in this image in detail. What objects, people, or scenes are present? Be descriptive and helpful.";
       
-      const result = await sendImageWithPrompt(cloudUri, prompt);
+      const result = await sendImageWithPrompt(cloudUri, transcribedText);
       
       console.log('AI Analysis result:', result);
       setAiResponse(result);
@@ -132,35 +130,6 @@ export default function TTSScreen() {
   };
 
   // Mock transcribe for testing (replace with real backend call later)
-  const transcribeAudio = async (audioUri: string) => {
-    setIsTranscribing(true);
-    setTranscribedText('');
-    
-    try {
-      console.log('Transcribing audio (mock mode)...');
-      
-      // Simulate transcription delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Mock transcript - user asking about image
-      const mockTranscript = "what is in front of me";
-      setTranscribedText(mockTranscript);
-      console.log('Transcribed text (mock):', mockTranscript);
-
-      // Check if user is asking about the image
-      if (isAskingAboutImage(mockTranscript)) {
-        console.log('User is asking about the image, analyzing...');
-        await analyzeImageWithAI();
-      }
-
-    } catch (error) {
-      console.error('Transcription error:', error);
-      Alert.alert('Error', 'Failed to transcribe audio.');
-      setTranscribedText('Transcription failed');
-    } finally {
-      setIsTranscribing(false);
-    }
-  };
 
   // Handle recording toggle
   const toggleRecording = async () => {
@@ -170,7 +139,7 @@ export default function TTSScreen() {
       if (uri) {
         setRecordedAudioUri(uri);
         console.log('Audio recorded, starting transcription...');
-        await transcribeAudio(uri);
+        setTranscribedText(await transcribeAudio(uri));
       }
     } else {
       setRecordedAudioUri('');

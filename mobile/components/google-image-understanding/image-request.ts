@@ -32,7 +32,7 @@ export default async function sendImageWithPrompt(
   }
 
   // If a specific question prompt was provided, build a targeted prompt; otherwise use the default PROMPT.
-  const promptToUse = prompt
+  const promptToUse = prompt != ''
     ? `You are describing what is in front of a blind person. Speak directly to them, using phrases like 'you are seeing…' or 'in front of you…'. \n Answer the following question they have about the scene: "${prompt}". Avoid unnecessary details, colors, or technical jargon. Make the answer clear and easy to understand, keeping it short and to the point.`
     : PROMPT;
 

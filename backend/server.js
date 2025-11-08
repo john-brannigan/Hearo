@@ -69,12 +69,11 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 3000;
-const HOST = process.env.HOST || '0.0.0.0';
 
 // Listen on all network interfaces (0.0.0.0) to allow mobile device connections
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server running on http://localhost:${PORT}`);
-  console.log(`📱 Also accessible at http://172.20.10.2:3000`);
+  console.log(`📱 Also accessible at http://143.215.103.93:${PORT}`);
   console.log(`📦 Bucket: ${BUCKET_NAME}`);
   console.log(`🔐 Project: ${process.env.GCP_PROJECT_ID}`);
   console.log('\nEndpoints:');
