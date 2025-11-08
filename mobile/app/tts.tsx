@@ -4,8 +4,8 @@ import { View, Text, TouchableOpacity, Image, StyleSheet, ScrollView, Alert, Act
 import { textToSpeech } from '@/components/elevenlabs/tts';
 import { startRecording, stopRecording, requestPermissions } from '@/components/elevenlabs/stt-native';
 import sendImageWithPrompt from '@/components/google-image-understanding/image-request';
+import { uploadImageToBackend } from '@/components/google-image-understanding/upload-image';
 import * as FileSystem from 'expo-file-system';
-
 
 export default function TTSScreen() {
   const params = useLocalSearchParams();
@@ -90,15 +90,27 @@ export default function TTSScreen() {
 
     setIsAnalyzingImage(true);
     setAiResponse('');
+    console.log('Its running idk');
+    
 
     try {
-      console.log('Analyzing image with Google Gemini...');
-      console.log('Image URI:', photoUri);
+      console.log('Uploading image to Google Cloud Storage...');
       
-      // Use the sendImageWithPrompt function directly with the local file:// URI
+      // Upload image to backend, which uploads to GCS and returns gs:// URI
+      const uploadResult = await uploadImageToBackend(photoUri);
+      const cloudUri = uploadResult.gsUri || uploadResult.httpsUrl;
+      
+      if (!cloudUri) {
+        throw new Error('Failed to get cloud URI from upload');
+      }
+
+      console.log('Image uploaded to cloud:', cloudUri);
+      console.log('Analyzing image with Google Gemini...');
+      
+      // Use the gs:// or https:// URI from Google Cloud Storage
       const prompt = "Describe what you see in this image in detail. What objects, people, or scenes are present? Be descriptive and helpful.";
       
-      const result = await sendImageWithPrompt(photoUri, prompt);
+      const result = await sendImageWithPrompt(cloudUri, prompt);
       
       console.log('AI Analysis result:', result);
       setAiResponse(result);
@@ -122,51 +134,22 @@ export default function TTSScreen() {
   const transcribeAudio = async (audioUri: string) => {
     setIsTranscribing(true);
     setTranscribedText('');
-    setImageAnswer('');
+    
     try {
-      console.log('Reading audio file:', audioUri);
+      console.log('Transcribing audio (mock mode)...');
       
-      // Read the audio file as base64
-       const audioBase64 = await FileSystem.readAsStringAsync(audioUri, {
-        encoding: 'base64' as any, // Changed from FileSystem.EncodingType.Base64
-      });
-
-      console.log('Sending to Google Cloud Speech-to-Text API...');
+      // Simulate transcription delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Call Google Cloud Speech-to-Text API
-      const response = await fetch(
-        'https://speech.googleapis.com/v1/speech:recognize?key=sk_87f129a69d2948f1960f3724281e658cb6fd92facf603f27',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            config: {
-              encoding: 'LINEAR16',
-              sampleRateHertz: 44100,
-              languageCode: 'en-US',
-            },
-            audio: {
-              content: audioBase64,
-            },
-          }),
-        }
-      );
+      // Mock transcript - user asking about image
+      const mockTranscript = "what is in front of me";
+      setTranscribedText(mockTranscript);
+      console.log('Transcribed text (mock):', mockTranscript);
 
-      if (!response.ok) {
-        throw new Error(`API request failed: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log('Transcription response:', data);
-
-      if (data.results && data.results.length > 0) {
-        const transcript = data.results[0].alternatives[0].transcript;
-        setTranscribedText(transcript);
-        console.log('Transcribed text:', transcript);
-      } else {
-        setTranscribedText('No speech detected');
+      // Check if user is asking about the image
+      if (isAskingAboutImage(mockTranscript)) {
+        console.log('User is asking about the image, analyzing...');
+        await analyzeImageWithAI();
       }
 
     } catch (error) {
@@ -299,6 +282,9 @@ export default function TTSScreen() {
             <Text style={styles.hintText}>
               Try saying: "What is in front of me?" or "Describe this image"
             </Text>
+            <Text style={styles.warningText}>
+              📝 Using mock transcription for testing. Image uploads to Google Cloud Storage.
+            </Text>
             
             <TouchableOpacity 
               style={[styles.recordButton, isRecording && styles.recordButtonActive]}
@@ -321,7 +307,7 @@ export default function TTSScreen() {
             {isAnalyzingImage && (
               <View style={styles.processingContainer}>
                 <ActivityIndicator size="small" color="#5E17EB" />
-                <Text style={styles.processingText}>Analyzing image with AI...</Text>
+                <Text style={styles.processingText}>Uploading to cloud & analyzing...</Text>
               </View>
             )}
 
@@ -396,7 +382,6 @@ export default function TTSScreen() {
   );
 }
 
-// ...existing styles...
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -508,6 +493,12 @@ const styles = StyleSheet.create({
   hintText: {
     fontSize: 12,
     color: '#007AFF',
+    marginBottom: 8,
+    fontStyle: 'italic',
+  },
+  warningText: {
+    fontSize: 11,
+    color: '#ff9500',
     marginBottom: 12,
     fontStyle: 'italic',
   },
@@ -639,7 +630,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-function setImageAnswer(arg0: string) {
-    // No-op: This functionality is handled by aiResponse state
-    // Originally intended to clear image analysis results
-}

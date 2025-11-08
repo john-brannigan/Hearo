@@ -90,6 +90,8 @@ export default function TTSScreen() {
 
     setIsAnalyzingImage(true);
     setAiResponse('');
+    console.log('Its running idk');
+    
 
     try {
       console.log('Uploading image to Google Cloud Storage...');
