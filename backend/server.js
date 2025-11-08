@@ -69,11 +69,12 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || '0.0.0.0';
 
-// Listen on all network interfaces (0.0.0.0) to allow mobile device connections
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ Server running on http://localhost:${PORT}`);
-  console.log(`📱 Also accessible at http://10.90.71.166:${PORT}`);
+// Listen on the specified host (your local IP) to allow mobile device connections
+app.listen(PORT, HOST, () => {
+  console.log(`✅ Server running on http://${HOST}:${PORT}`);
+  console.log(`📱 Mobile devices can connect at: http://${HOST}:${PORT}`);
   console.log(`📦 Bucket: ${BUCKET_NAME}`);
   console.log(`🔐 Project: ${process.env.GCP_PROJECT_ID}`);
   console.log('\nEndpoints:');
