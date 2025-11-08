@@ -5,7 +5,7 @@ const DEFAULT_LOCATION = process.env.EXPO_PUBLIC_GOOGLE_CLOUD_LOCATION || 'us-ce
 const DEFAULT_PROJECT = process.env.EXPO_PUBLIC_GOOGLE_CLOUD_PROJECT;
 
 
-const PROMPT = `You are describing what is in front of a blind person. Speak directly to them, using phrases like 'you are seeing…' or 'in front of you…'. Describe the scene in detail. Avoid unnecessary technical jargon. Make the description clear and easy to understand.`;
+const PROMPT = `Speak directly to them, using phrases like 'you are seeing…' or 'in front of you…'. Summarize the scene concisely, focusing on the most important objects, people, and actions. Avoid unnecessary details, colors, or technical jargon. Make the description clear and easy to imagine, keeping it short and to the point. If there is text, describe the general gist of the text. If there are any outstanding signs, briefly say the title/description of the sign as well.`;
 
 /**
  * Send an image (URI) and a text prompt to the Google GenAI image-text model.
@@ -35,6 +35,7 @@ export default async function sendImageWithPrompt(
   const promptToUse = prompt != ''
     ? `You are describing what is in front of a blind person. Speak directly to them, using phrases like 'you are seeing…' or 'in front of you…'. \n Answer the following question they have about the scene: "${prompt}". Avoid unnecessary details, colors, or technical jargon. Make the answer clear and easy to understand, keeping it short and to the point.`
     : PROMPT;
+
 
   // Basic mime-type guess from file extension (optional)
   function guessMime(u: string): string | undefined {
