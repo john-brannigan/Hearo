@@ -1,16 +1,11 @@
-// filepath: /Users/shrikarkolla/Documents/GitHub/AIATL2025/mobile/app/tts.tsx
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { textToSpeech } from '@/components/elevenlabs/tts';
 import { startRecording, stopRecording, requestPermissions } from '@/components/elevenlabs/stt-native';
 import sendImageWithPrompt from '@/components/google-image-understanding/image-request';
+import { uploadImageToBackend } from '@/components/google-image-understanding/upload-image';
 import * as FileSystem from 'expo-file-system';
-
-const ELEVEN_API_KEY = 'REPLACE_WITH_ELEVEN_LABS_API_KEY';
-const ELEVEN_STT_URL = 'https://api.elevenlabs.io/v1/speech-to-text'; // adjust if ElevenLabs endpoint differs
-const GOOGLE_API_KEY = 'AQ.Ab8RN6I3DO0ruPa-kJSanXmqsqs21VILyxCiybr59x-OR_P8FQ';
-const GOOGLE_STORAGE_BUCKET = 'imagesformyapp';
 
 export default function TTSScreen() {
   const params = useLocalSearchParams();
@@ -23,8 +18,8 @@ export default function TTSScreen() {
   const [recordedAudioUri, setRecordedAudioUri] = useState<string>('');
   const [transcribedText, setTranscribedText] = useState<string>('');
   const [isTranscribing, setIsTranscribing] = useState(false);
-  const [imageAnswer, setImageAnswer] = useState<string>('');
-  const [isGeneratingAnswer, setIsGeneratingAnswer] = useState(false);
+  const [aiResponse, setAiResponse] = useState<string>('');
+  const [isAnalyzingImage, setIsAnalyzingImage] = useState(false);
 
   console.log('TTS Screen loaded with photo:', photoUri);
 
@@ -45,7 +40,7 @@ export default function TTSScreen() {
     setQuestion(randomQuestion);
   };
 
-  // Speak the question using TTS (Eleven Labs)
+  // Speak the question using TTS
   const speakQuestion = async () => {
     if (!question || isSpeaking) return;
     
@@ -63,134 +58,101 @@ export default function TTSScreen() {
     }
   };
 
-  // Upload image to Google Cloud Storage and return the public URL
-  const uploadImageToGCS = async (localUri: string) => {
-    if (!localUri) throw new Error('No local image URI provided');
+  // Check if the transcribed text is asking about the image
+  const isAskingAboutImage = (text: string): boolean => {
+    const imageQuestions = [
+      'what is in front of me',
+      'what do you see',
+      'what is this',
+      'describe this',
+      'what am i looking at',
+      'tell me about this',
+      'what is in this image',
+      'what is in the picture',
+      'what is in the photo',
+      'analyze this',
+      'whats in front of me',
+      'whats this',
+      'describe the image',
+      'tell me what you see'
+    ];
+    
+    const lowerText = text.toLowerCase();
+    return imageQuestions.some(q => lowerText.includes(q));
+  };
 
-    const fileName = `uploads/${Date.now()}_${localUri.split('/').pop()}`;
-    const uploadUrl = `https://storage.googleapis.com/upload/storage/v1/b/${GOOGLE_STORAGE_BUCKET}/o?uploadType=media&name=${encodeURIComponent(fileName)}&key=${GOOGLE_API_KEY}`;
+  // Analyze image using Google Cloud Vision API via google-image-understanding
+  const analyzeImageWithAI = async () => {
+    if (!photoUri) {
+      Alert.alert('Error', 'No image to analyze');
+      return;
+    }
+
+    setIsAnalyzingImage(true);
+    setAiResponse('');
 
     try {
-      console.log('Fetching local image to upload:', localUri);
-      const fileResponse = await fetch(localUri);
-      const blob = await fileResponse.blob();
-      console.log('Uploading to GCS as:', fileName);
-
-      const res = await fetch(uploadUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': blob.type || 'application/octet-stream',
-        },
-        body: blob,
-      });
-
-      const text = await res.text();
-      let data: any = null;
-      try {
-        data = text ? JSON.parse(text) : null;
-      } catch {
-        data = null;
+      console.log('Uploading image to Google Cloud Storage...');
+      
+      // Upload image to backend, which uploads to GCS and returns gs:// URI
+      const uploadResult = await uploadImageToBackend(photoUri);
+      const cloudUri = uploadResult.gsUri || uploadResult.httpsUrl;
+      
+      if (!cloudUri) {
+        throw new Error('Failed to get cloud URI from upload');
       }
 
-      if (!res.ok) {
-        throw new Error(`GCS upload failed: ${res.status} - ${text}`);
-      }
+      console.log('Image uploaded to cloud:', cloudUri);
+      console.log('Analyzing image with Google Gemini...');
+      
+      // Use the gs:// or https:// URI from Google Cloud Storage
+      const prompt = "Describe what you see in this image in detail. What objects, people, or scenes are present? Be descriptive and helpful.";
+      
+      const result = await sendImageWithPrompt(cloudUri, prompt);
+      
+      console.log('AI Analysis result:', result);
+      setAiResponse(result);
 
-      // Construct public URL. Depending on bucket policy, this may not be public.
-      const publicUrl = `https://storage.googleapis.com/${GOOGLE_STORAGE_BUCKET}/${encodeURIComponent(fileName)}`;
-      console.log('Image uploaded to GCS URL:', publicUrl, 'upload response:', data);
-      return publicUrl;
-    } catch (err) {
-      console.error('Error uploading image to GCS:', err);
-      throw err;
+      // Speak the AI response
+      setIsSpeaking(true);
+      await textToSpeech(result);
+      setIsSpeaking(false);
+
+    } catch (error) {
+      console.error('Image analysis error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      Alert.alert('Error', `Failed to analyze image: ${errorMessage}`);
+      setAiResponse(`Analysis failed: ${errorMessage}`);
+    } finally {
+      setIsAnalyzingImage(false);
     }
   };
 
-  // Transcribe audio using Eleven Labs STT then upload image to GCS and call prompt API
+  // Mock transcribe for testing (replace with real backend call later)
   const transcribeAudio = async (audioUri: string) => {
     setIsTranscribing(true);
     setTranscribedText('');
-    setImageAnswer('');
-
+    
     try {
-      console.log('Checking audio file exists at:', audioUri);
-      const info = await FileSystem.getInfoAsync(audioUri);
-      console.log('File info:', info);
+      console.log('Transcribing audio (mock mode)...');
+      
+      // Simulate transcription delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Mock transcript - user asking about image
+      const mockTranscript = "what is in front of me";
+      setTranscribedText(mockTranscript);
+      console.log('Transcribed text (mock):', mockTranscript);
 
-      if (!info.exists) {
-        throw new Error(`Audio file not found: ${audioUri}`);
+      // Check if user is asking about the image
+      if (isAskingAboutImage(mockTranscript)) {
+        console.log('User is asking about the image, analyzing...');
+        await analyzeImageWithAI();
       }
 
-      console.log('Preparing form data for Eleven Labs STT...');
-      const formData = new FormData();
-      // React Native / Expo: append a file object with uri, name, type
-      formData.append('file', {
-        uri: audioUri,
-        name: 'recording.m4a',
-        type: 'audio/m4a',
-      } as any);
-
-      console.log('Sending audio to Eleven Labs STT...');
-      const sttResponse = await fetch(ELEVEN_STT_URL, {
-        method: 'POST',
-        headers: {
-          'xi-api-key': ELEVEN_API_KEY,
-          // Note: Do NOT set Content-Type here; fetch will set the multipart boundary.
-          Accept: 'application/json',
-        },
-        body: formData as any,
-      });
-
-      const sttRaw = await sttResponse.text();
-      let sttData: any = null;
-      try {
-        sttData = sttRaw ? JSON.parse(sttRaw) : null;
-      } catch (e) {
-        console.warn('Eleven Labs STT response not JSON:', sttRaw);
-      }
-
-      console.log('Eleven Labs STT response status:', sttResponse.status, 'body:', sttData ?? sttRaw);
-      if (!sttResponse.ok) {
-        const body = typeof sttData === 'object' ? JSON.stringify(sttData) : sttRaw;
-        throw new Error(`Eleven Labs STT failed: ${sttResponse.status} - ${body}`);
-      }
-
-      // Extract transcription from common properties
-      const transcript =
-        (sttData && (sttData.text || sttData.transcript || sttData?.results?.[0]?.alternatives?.[0]?.transcript)) ||
-        (typeof sttData === 'string' ? sttData : '') ||
-        '';
-
-      if (!transcript) {
-        console.warn('No transcript returned from STT:', sttData);
-        setTranscribedText('No speech detected');
-        return;
-      }
-
-      setTranscribedText(transcript);
-      console.log('Transcribed text:', transcript);
-
-      // Upload image to Google Cloud and call sendImageWithPrompt with the GCS URL
-      try {
-        if (!photoUri) {
-          console.warn('No photoUri available for image prompt');
-          return;
-        }
-        setIsGeneratingAnswer(true);
-        const gcsUrl = await uploadImageToGCS(photoUri);
-        const answer = await sendImageWithPrompt(gcsUrl, transcript);
-        setImageAnswer(answer);
-        // Speak the model's answer via Eleven Labs TTS
-        await textToSpeech(answer);
-      } catch (err) {
-        console.error('Error generating image answer or uploading image:', err);
-        Alert.alert('Error', 'Failed to generate image summary or upload image.');
-      } finally {
-        setIsGeneratingAnswer(false);
-      }
     } catch (error) {
       console.error('Transcription error:', error);
-      Alert.alert('Error', 'Failed to transcribe audio. Please try again.');
+      Alert.alert('Error', 'Failed to transcribe audio.');
       setTranscribedText('Transcription failed');
     } finally {
       setIsTranscribing(false);
@@ -210,6 +172,7 @@ export default function TTSScreen() {
     } else {
       setRecordedAudioUri('');
       setTranscribedText('');
+      setAiResponse('');
       const hasPermission = await requestPermissions();
       if (!hasPermission) {
         Alert.alert('Permission Required', 'Microphone access is needed.');
@@ -239,6 +202,24 @@ export default function TTSScreen() {
     } catch (error) {
       console.error('Error speaking transcribed text:', error);
       Alert.alert('Error', 'Failed to speak the text.');
+    } finally {
+      setIsSpeaking(false);
+    }
+  };
+
+  // Speak the AI response
+  const speakAIResponse = async () => {
+    if (!aiResponse) {
+      Alert.alert("No Response", "No AI response available!");
+      return;
+    }
+    
+    setIsSpeaking(true);
+    try {
+      await textToSpeech(aiResponse);
+    } catch (error) {
+      console.error('Error speaking AI response:', error);
+      Alert.alert('Error', 'Failed to speak the response.');
     } finally {
       setIsSpeaking(false);
     }
@@ -296,11 +277,17 @@ export default function TTSScreen() {
           {/* Recording Section */}
           <View style={styles.recordingContainer}>
             <Text style={styles.recordingLabel}>Voice Input:</Text>
+            <Text style={styles.hintText}>
+              Try saying: "What is in front of me?" or "Describe this image"
+            </Text>
+            <Text style={styles.warningText}>
+              📝 Using mock transcription for testing. Image uploads to Google Cloud Storage.
+            </Text>
             
             <TouchableOpacity 
               style={[styles.recordButton, isRecording && styles.recordButtonActive]}
               onPress={toggleRecording}
-              disabled={isTranscribing}>
+              disabled={isTranscribing || isAnalyzingImage}>
               <Text style={styles.recordButtonText}>
                 {isRecording ? '⏹️ Stop Recording' : '🎤 Start Recording'}
               </Text>
@@ -308,14 +295,22 @@ export default function TTSScreen() {
 
             {/* Show transcribing indicator */}
             {isTranscribing && (
-              <View style={styles.transcribingContainer}>
+              <View style={styles.processingContainer}>
                 <ActivityIndicator size="small" color="#007AFF" />
-                <Text style={styles.transcribingText}>Transcribing audio...</Text>
+                <Text style={styles.processingText}>Transcribing audio...</Text>
+              </View>
+            )}
+
+            {/* Show analyzing indicator */}
+            {isAnalyzingImage && (
+              <View style={styles.processingContainer}>
+                <ActivityIndicator size="small" color="#5E17EB" />
+                <Text style={styles.processingText}>Uploading to cloud & analyzing...</Text>
               </View>
             )}
 
             {/* Show transcribed text */}
-            {transcribedText && !isTranscribing && (
+            {transcribedText && !isTranscribing && !isAnalyzingImage && (
               <View style={styles.transcribedContainer}>
                 <View style={styles.transcribedHeader}>
                   <Text style={styles.transcribedLabel}>You said:</Text>
@@ -329,13 +324,34 @@ export default function TTSScreen() {
               </View>
             )}
 
-            {/* Show audio file path (for debugging) */}
-            {recordedAudioUri && !isTranscribing && (
-              <View style={styles.debugContainer}>
-                <Text style={styles.debugLabel}>Audio file:</Text>
-                <Text style={styles.debugText} numberOfLines={1}>{recordedAudioUri}</Text>
+            {/* Show AI analysis result */}
+            {aiResponse && (
+              <View style={styles.aiResponseContainer}>
+                <View style={styles.aiResponseHeader}>
+                  <Text style={styles.aiResponseLabel}>🤖 AI Analysis:</Text>
+                  <TouchableOpacity onPress={speakAIResponse} disabled={isSpeaking}>
+                    <Text style={styles.playbackButton}>
+                      {isSpeaking ? '🔊' : '▶️ Play back'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                <ScrollView style={styles.aiResponseScroll} nestedScrollEnabled>
+                  <Text style={styles.aiResponseText}>{aiResponse}</Text>
+                </ScrollView>
               </View>
             )}
+          </View>
+
+          {/* Manual Analysis Button */}
+          <View style={styles.manualAnalysisContainer}>
+            <TouchableOpacity 
+              style={styles.analyzeButton}
+              onPress={analyzeImageWithAI}
+              disabled={isAnalyzingImage || isSpeaking}>
+              <Text style={styles.analyzeButtonText}>
+                {isAnalyzingImage ? '🔄 Analyzing...' : '🔍 Analyze Image Now'}
+              </Text>
+            </TouchableOpacity>
           </View>
 
           {/* Action buttons */}
@@ -469,8 +485,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#666',
-    marginBottom: 12,
+    marginBottom: 8,
     textTransform: 'uppercase',
+  },
+  hintText: {
+    fontSize: 12,
+    color: '#007AFF',
+    marginBottom: 8,
+    fontStyle: 'italic',
+  },
+  warningText: {
+    fontSize: 11,
+    color: '#ff9500',
+    marginBottom: 12,
+    fontStyle: 'italic',
   },
   recordButton: {
     backgroundColor: '#ff3b30',
@@ -486,7 +514,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  transcribingContainer: {
+  processingContainer: {
     marginTop: 16,
     padding: 16,
     backgroundColor: '#f0f0f0',
@@ -495,7 +523,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  transcribingText: {
+  processingText: {
     fontSize: 14,
     color: '#666',
     fontStyle: 'italic',
@@ -530,21 +558,48 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     lineHeight: 24,
   },
-  debugContainer: {
-    marginTop: 12,
-    padding: 12,
-    backgroundColor: '#fff3cd',
+  aiResponseContainer: {
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: '#e3f2fd',
     borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#5E17EB',
+    maxHeight: 300,
   },
-  debugLabel: {
-    fontSize: 12,
+  aiResponseHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  aiResponseLabel: {
+    fontSize: 14,
     fontWeight: '600',
-    color: '#856404',
-    marginBottom: 4,
+    color: '#1565c0',
   },
-  debugText: {
-    fontSize: 11,
-    color: '#856404',
+  aiResponseScroll: {
+    maxHeight: 200,
+  },
+  aiResponseText: {
+    fontSize: 16,
+    color: '#0d47a1',
+    fontWeight: '500',
+    lineHeight: 24,
+  },
+  manualAnalysisContainer: {
+    marginBottom: 20,
+  },
+  analyzeButton: {
+    backgroundColor: '#5E17EB',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  analyzeButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   buttonContainer: {
     gap: 12,
