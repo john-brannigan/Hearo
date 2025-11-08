@@ -241,7 +241,11 @@ export default function TTSScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: 'Image Analysis', headerShown: true }} />
+      <Stack.Screen options={{ title: 'Image Analysis',
+         headerShown: true,
+         tabBarStyle: { display: 'none' } 
+        }} 
+    />
       <ScrollView style={styles.container}>
         <View style={styles.content}>
           {/* Display the captured image */}

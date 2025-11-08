@@ -16,7 +16,12 @@ export default function CameraScreen() {
   if (!permission) {
     return (
       <>
-        <Stack.Screen options={{ headerShown: false }} />
+        <Stack.Screen
+          options={{
+            headerShown: false,
+            tabBarStyle: { display: 'none' }
+          }}
+        />
         <View style={styles.container}>
           <Text style={styles.message}>Loading camera...</Text>
         </View>
