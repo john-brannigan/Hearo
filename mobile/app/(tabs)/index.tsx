@@ -1,11 +1,11 @@
 import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { Platform, StyleSheet, TouchableOpacity } from 'react-native';
 
 import { HelloWave } from '@/components/hello-wave';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import { Link, router } from 'expo-router';
 
 export default function HomeScreen() {
   return (
@@ -21,6 +21,20 @@ export default function HomeScreen() {
         <ThemedText type="title">Welcome!</ThemedText>
         <HelloWave />
       </ThemedView>
+
+      {/* Camera Button */}
+      <ThemedView style={styles.stepContainer}>
+        <ThemedText type="subtitle">📸 Camera Feature</ThemedText>
+        <ThemedText>
+          Take photos and save them to your gallery.
+        </ThemedText>
+        <TouchableOpacity 
+          style={styles.cameraButton}
+          onPress={() => router.push('/camera')}>
+          <ThemedText style={styles.cameraButtonText}>Open Camera</ThemedText>
+        </TouchableOpacity>
+      </ThemedView>
+
       <ThemedView style={styles.stepContainer}>
         <ThemedText type="subtitle">Step 1: Try it</ThemedText>
         <ThemedText>
@@ -94,5 +108,17 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     position: 'absolute',
+  },
+  cameraButton: {
+    backgroundColor: '#007AFF',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  cameraButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
