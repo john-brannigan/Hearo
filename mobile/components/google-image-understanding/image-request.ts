@@ -2,8 +2,14 @@
 import { GoogleGenAI } from '@google/genai';
 import { GOOGLE_CLOUD_LOCATION, GOOGLE_CLOUD_PROJECT } from '@env';
 
-const DEFAULT_LOCATION = GOOGLE_CLOUD_LOCATION;
-const DEFAULT_PROJECT = GOOGLE_CLOUD_PROJECT;
+const DEFAULT_LOCATION = GOOGLE_CLOUD_LOCATION || 'us-central1';
+const DEFAULT_PROJECT = GOOGLE_CLOUD_PROJECT || 'aiatl2025';
+
+console.log('Google Cloud Config:', { 
+  project: DEFAULT_PROJECT, 
+  location: DEFAULT_LOCATION,
+  fromEnv: { GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_LOCATION }
+});
 
 const PROMPT = `You are describing what is in front of a blind person. Speak directly to them, using phrases like 'you are seeing…' or 'in front of you…'. Describe the scene in detail. Avoid unnecessary technical jargon. Make the description clear and easy to understand.`;
 
@@ -20,8 +26,10 @@ export default async function sendImageWithPrompt(
   uri: string,
   prompt?: string,
   projectId: string | undefined = DEFAULT_PROJECT,
-  location: string = DEFAULT_LOCATION || 'us-central1'
+  location: string = DEFAULT_LOCATION
 ): Promise<string> {
+  console.log('sendImageWithPrompt called with:', { uri, projectId, location });
+  
   if (!projectId) {
     throw new Error('Google Cloud project ID not provided. Set GOOGLE_CLOUD_PROJECT env var or pass projectId.');
   }
