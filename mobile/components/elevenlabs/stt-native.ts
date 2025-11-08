@@ -1,7 +1,5 @@
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system/next';
-import { ELEVENLABS_API_KEY } from '@env';
-
 export interface SpeechRecognitionResult {
   transcript: string;
   isFinal: boolean;
@@ -78,11 +76,15 @@ export async function transcribeAudio(audioUri: string): Promise<string> {
     formData.append('model_id', 'scribe_v1');
 
     console.log("Calling ElevenLabs STT API...");
+    const apiKey = process.env.EXPO_PUBLIC_ELEVENLABS_API_KEY;
+    if (!apiKey) {
+      throw new Error('ElevenLabs API key is not set in EXPO_PUBLIC_ELEVENLABS_API_KEY');
+    }
     const response = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
       method: 'POST',
-      headers: {
-        'xi-api-key': ELEVENLABS_API_KEY,
-      },
+      headers: new Headers({
+        'xi-api-key': apiKey,
+      }),
       body: formData,
     });
 

@@ -1,4 +1,4 @@
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { textToSpeech } from '@/components/elevenlabs/tts';
@@ -8,9 +8,10 @@ import { uploadImageToBackend } from '@/components/google-image-understanding/up
 import * as FileSystem from 'expo-file-system';
 
 export default function TTSScreen() {
-  const params = useLocalSearchParams();
-  const router = useRouter();
-  const photoUri = params.photoUri as string;
+  const navigation = useNavigation();
+  const route = useRoute();
+  // @ts-ignore - route.params typing varies
+  const photoUri = (route.params && (route.params as any).photoUri) as string;
   
   const [question, setQuestion] = useState<string>('');
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -240,12 +241,6 @@ export default function TTSScreen() {
   }, [question]);
 
   return (
-    <>
-      <Stack.Screen options={{ title: 'Image Analysis',
-         headerShown: true,
-         tabBarStyle: { display: 'none' } 
-        }} 
-    />
       <ScrollView style={styles.container}>
         <View style={styles.content}>
           {/* Display the captured image */}
@@ -370,19 +365,18 @@ export default function TTSScreen() {
 
             <TouchableOpacity 
               style={styles.backButton} 
-              onPress={() => router.back()}>
+              onPress={() => navigation.goBack()}>
               <Text style={styles.buttonText}>📷 Take Another Photo</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
               style={styles.homeButton} 
-              onPress={() => router.push('./index.tsx')}>
+              onPress={() => navigation.navigate('Home' as any)}>
               <Text style={styles.buttonText}>🏠 Go Home</Text>
             </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
-    </>
   );
 }
 

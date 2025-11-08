@@ -33,10 +33,14 @@ export default function Index() {
 }
 `;
 
-const layoutContent = `import { Stack } from "expo-router";
+const layoutContent = `import { View, Text } from "react-native";
 
 export default function RootLayout() {
-  return <Stack />;
+  return (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <Text>Edit app/index.tsx to edit your screen.</Text>
+    </View>
+  );
 }
 `;
 
