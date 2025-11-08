@@ -1,3 +1,4 @@
+// filepath: /Users/shrikarkolla/Documents/GitHub/AIATL2025/mobile/app/tts.tsx
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
@@ -5,6 +6,11 @@ import { textToSpeech } from '@/components/elevenlabs/tts';
 import { startRecording, stopRecording, requestPermissions } from '@/components/elevenlabs/stt-native';
 import sendImageWithPrompt from '@/components/google-image-understanding/image-request';
 import * as FileSystem from 'expo-file-system';
+
+const ELEVEN_API_KEY = 'REPLACE_WITH_ELEVEN_LABS_API_KEY';
+const ELEVEN_STT_URL = 'https://api.elevenlabs.io/v1/speech-to-text'; // adjust if ElevenLabs endpoint differs
+const GOOGLE_API_KEY = 'AQ.Ab8RN6I3DO0ruPa-kJSanXmqsqs21VILyxCiybr59x-OR_P8FQ';
+const GOOGLE_STORAGE_BUCKET = 'imagesformyapp';
 
 export default function TTSScreen() {
   const params = useLocalSearchParams();
@@ -39,7 +45,7 @@ export default function TTSScreen() {
     setQuestion(randomQuestion);
   };
 
-  // Speak the question using TTS
+  // Speak the question using TTS (Eleven Labs)
   const speakQuestion = async () => {
     if (!question || isSpeaking) return;
     
@@ -57,11 +63,55 @@ export default function TTSScreen() {
     }
   };
 
-  // Transcribe audio using Google Cloud Speech-to-Text
+  // Upload image to Google Cloud Storage and return the public URL
+  const uploadImageToGCS = async (localUri: string) => {
+    if (!localUri) throw new Error('No local image URI provided');
+
+    const fileName = `uploads/${Date.now()}_${localUri.split('/').pop()}`;
+    const uploadUrl = `https://storage.googleapis.com/upload/storage/v1/b/${GOOGLE_STORAGE_BUCKET}/o?uploadType=media&name=${encodeURIComponent(fileName)}&key=${GOOGLE_API_KEY}`;
+
+    try {
+      console.log('Fetching local image to upload:', localUri);
+      const fileResponse = await fetch(localUri);
+      const blob = await fileResponse.blob();
+      console.log('Uploading to GCS as:', fileName);
+
+      const res = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': blob.type || 'application/octet-stream',
+        },
+        body: blob,
+      });
+
+      const text = await res.text();
+      let data: any = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        data = null;
+      }
+
+      if (!res.ok) {
+        throw new Error(`GCS upload failed: ${res.status} - ${text}`);
+      }
+
+      // Construct public URL. Depending on bucket policy, this may not be public.
+      const publicUrl = `https://storage.googleapis.com/${GOOGLE_STORAGE_BUCKET}/${encodeURIComponent(fileName)}`;
+      console.log('Image uploaded to GCS URL:', publicUrl, 'upload response:', data);
+      return publicUrl;
+    } catch (err) {
+      console.error('Error uploading image to GCS:', err);
+      throw err;
+    }
+  };
+
+  // Transcribe audio using Eleven Labs STT then upload image to GCS and call prompt API
   const transcribeAudio = async (audioUri: string) => {
     setIsTranscribing(true);
     setTranscribedText('');
     setImageAnswer('');
+
     try {
       console.log('Checking audio file exists at:', audioUri);
       const info = await FileSystem.getInfoAsync(audioUri);
@@ -71,84 +121,73 @@ export default function TTSScreen() {
         throw new Error(`Audio file not found: ${audioUri}`);
       }
 
-      console.log('Reading audio file as base64...');
-      const audioBase64 = await FileSystem.readAsStringAsync(audioUri, {
-        encoding: 'base64' as any,
-      });
+      console.log('Preparing form data for Eleven Labs STT...');
+      const formData = new FormData();
+      // React Native / Expo: append a file object with uri, name, type
+      formData.append('file', {
+        uri: audioUri,
+        name: 'recording.m4a',
+        type: 'audio/m4a',
+      } as any);
 
-      console.log('Finished reading audio file, size (chars):', audioBase64.length);
-
-      // Note: Google Speech-to-Text expects the audio encoding to match the file.
-      // The app records using Expo Audio (likely producing m4a/caf). If transcription fails,
-      // check the recorded file format and API key. We'll include detailed response body on errors.
-      console.log('Sending to Google Cloud Speech-to-Text API...');
-
-      const GOOGLE_API_URL = 'https://speech.googleapis.com/v1/speech:recognize?key=REPLACE_WITH_YOUR_GOOGLE_API_KEY';
-
-      const response = await fetch(GOOGLE_API_URL, {
+      console.log('Sending audio to Eleven Labs STT...');
+      const sttResponse = await fetch(ELEVEN_STT_URL, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'xi-api-key': ELEVEN_API_KEY,
+          // Note: Do NOT set Content-Type here; fetch will set the multipart boundary.
+          Accept: 'application/json',
         },
-        body: JSON.stringify({
-          config: {
-            encoding: 'LINEAR16',
-            sampleRateHertz: 44100,
-            languageCode: 'en-US',
-          },
-          audio: {
-            content: audioBase64,
-          },
-        }),
+        body: formData as any,
       });
 
-      const rawText = await response.text();
-      let data: any = null;
+      const sttRaw = await sttResponse.text();
+      let sttData: any = null;
       try {
-        data = rawText ? JSON.parse(rawText) : null;
+        sttData = sttRaw ? JSON.parse(sttRaw) : null;
       } catch (e) {
-        console.warn('Response not JSON:', rawText);
+        console.warn('Eleven Labs STT response not JSON:', sttRaw);
       }
 
-      console.log('Transcription response status:', response.status);
-      console.log('Transcription response body:', data ?? rawText);
-
-      if (!response.ok) {
-        const body = typeof data === 'object' ? JSON.stringify(data) : rawText;
-        throw new Error(`API request failed: ${response.status} - ${body}`);
+      console.log('Eleven Labs STT response status:', sttResponse.status, 'body:', sttData ?? sttRaw);
+      if (!sttResponse.ok) {
+        const body = typeof sttData === 'object' ? JSON.stringify(sttData) : sttRaw;
+        throw new Error(`Eleven Labs STT failed: ${sttResponse.status} - ${body}`);
       }
 
-      console.log('Parsing transcription response...');
-      console.log('Transcription parsed JSON:', data);
+      // Extract transcription from common properties
+      const transcript =
+        (sttData && (sttData.text || sttData.transcript || sttData?.results?.[0]?.alternatives?.[0]?.transcript)) ||
+        (typeof sttData === 'string' ? sttData : '') ||
+        '';
 
-      if (data.results && data.results.length > 0) {
-        const transcript = data.results[0].alternatives[0].transcript;
-        setTranscribedText(transcript);
-        console.log('Transcribed text:', transcript);
-        // After successful transcription, send the user's spoken question + the photo to the
-        // image understanding API and speak the generated summary.
-        (async () => {
-          try {
-            if (!photoUri) {
-              console.warn('No photoUri available for image prompt');
-              return;
-            }
-            setIsGeneratingAnswer(true);
-            const answer = await sendImageWithPrompt(photoUri, transcript);
-            setImageAnswer(answer);
-            // Speak the model's answer
-            await textToSpeech(answer);
-          } catch (err) {
-            console.error('Error generating image answer:', err);
-            Alert.alert('Error', 'Failed to generate image summary.');
-          } finally {
-            setIsGeneratingAnswer(false);
-          }
-        })();
-      } else {
+      if (!transcript) {
+        console.warn('No transcript returned from STT:', sttData);
         setTranscribedText('No speech detected');
+        return;
       }
 
+      setTranscribedText(transcript);
+      console.log('Transcribed text:', transcript);
+
+      // Upload image to Google Cloud and call sendImageWithPrompt with the GCS URL
+      try {
+        if (!photoUri) {
+          console.warn('No photoUri available for image prompt');
+          return;
+        }
+        setIsGeneratingAnswer(true);
+        const gcsUrl = await uploadImageToGCS(photoUri);
+        const answer = await sendImageWithPrompt(gcsUrl, transcript);
+        setImageAnswer(answer);
+        // Speak the model's answer via Eleven Labs TTS
+        await textToSpeech(answer);
+      } catch (err) {
+        console.error('Error generating image answer or uploading image:', err);
+        Alert.alert('Error', 'Failed to generate image summary or upload image.');
+      } finally {
+        setIsGeneratingAnswer(false);
+      }
     } catch (error) {
       console.error('Transcription error:', error);
       Alert.alert('Error', 'Failed to transcribe audio. Please try again.');
