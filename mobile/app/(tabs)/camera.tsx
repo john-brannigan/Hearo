@@ -1,10 +1,12 @@
+import { Stack, useRouter } from 'expo-router';
 import React, { useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, Image, StyleSheet, Alert } from 'react-native';
 import { CameraView, useCameraPermissions, CameraType } from 'expo-camera';
 import * as MediaLibrary from 'expo-media-library';
 
 export default function CameraScreen() {
   const camRef = useRef<CameraView>(null);
+  const router = useRouter();
   const [permission, requestPermission] = useCameraPermissions();
   const [mediaPermission, requestMediaPermission] = MediaLibrary.usePermissions();
   const [facing, setFacing] = useState<CameraType>('back');
@@ -13,20 +15,26 @@ export default function CameraScreen() {
 
   if (!permission) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.message}>Loading camera...</Text>
-      </View>
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.container}>
+          <Text style={styles.message}>Loading camera...</Text>
+        </View>
+      </>
     );
   }
 
   if (!permission.granted) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.message}>We need camera access to take photos</Text>
-        <TouchableOpacity onPress={requestPermission} style={styles.button}>
-          <Text style={styles.buttonText}>Grant Permission</Text>
-        </TouchableOpacity>
-      </View>
+      <>
+        <Stack.Screen options={{ title: 'Camera Permission' }} />
+        <View style={styles.container}>
+          <Text style={styles.message}>We need camera access to take photos</Text>
+          <TouchableOpacity onPress={requestPermission} style={styles.button}>
+            <Text style={styles.buttonText}>Grant Permission</Text>
+          </TouchableOpacity>
+        </View>
+      </>
     );
   }
 
@@ -35,10 +43,11 @@ export default function CameraScreen() {
     setIsTaking(true);
     try {
       const result = await camRef.current.takePictureAsync({ quality: 0.7 });
+      console.log('Photo taken:', result.uri);
       setPhoto(result.uri);
     } catch (e) {
-      console.warn('Error taking picture:', e);
-      alert('Failed to take picture');
+      console.error('Error taking picture:', e);
+      Alert.alert('Error', 'Failed to take picture');
     } finally {
       setIsTaking(false);
     }
@@ -50,19 +59,40 @@ export default function CameraScreen() {
     if (!mediaPermission?.granted) {
       const result = await requestMediaPermission();
       if (!result.granted) {
-        alert('Permission to access media library is required');
+        Alert.alert('Permission Required', 'Media library access is needed to save photos');
         return;
       }
     }
     
     try {
       await MediaLibrary.createAssetAsync(photo);
-      alert('Photo saved to gallery! 📸');
-      setPhoto(null);
+      console.log('Photo saved to gallery');
+      Alert.alert('Success', 'Photo saved! 📸');
+      
+      // Navigate to TTS screen with the photo
+      console.log('Navigating to TTS with photo:', photo);
+      router.push({
+        pathname: '/tts' as any,
+        params: { photoUri: photo }
+      });
+      
     } catch (e) {
-      console.warn('Error saving photo:', e);
-      alert('Failed to save photo');
+      console.error('Error saving photo:', e);
+      Alert.alert('Error', 'Failed to save photo');
     }
+  };
+
+  // Process photo without saving to gallery
+  const processPhoto = () => {
+    if (!photo) return;
+    
+    console.log('Processing photo for TTS:', photo);
+    
+    // Navigate to TTS screen with the photo
+    router.push({
+      pathname: '/tts' as any,
+      params: { photoUri: photo }
+    });
   };
 
   const toggleCameraFacing = () => {
@@ -70,9 +100,21 @@ export default function CameraScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      {!photo ? (
-        <CameraView style={styles.camera} facing={facing} ref={camRef}>
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={styles.container}>
+        {!photo ? (
+          <CameraView style={styles.camera} facing={facing} ref={camRef} />
+        ) : null}
+        
+        {photo && (
+          <View style={styles.preview}>
+            <Image source={{ uri: photo }} style={styles.previewImage} />
+          </View>
+        )}
+
+        {/* Controls overlay */}
+        {!photo ? (
           <View style={styles.controls}>
             <TouchableOpacity style={styles.flipButton} onPress={toggleCameraFacing}>
               <Text style={styles.controlText}>🔄 Flip</Text>
@@ -87,21 +129,21 @@ export default function CameraScreen() {
 
             <View style={styles.placeholder} />
           </View>
-        </CameraView>
-      ) : (
-        <View style={styles.preview}>
-          <Image source={{ uri: photo }} style={styles.previewImage} />
+        ) : (
           <View style={styles.previewControls}>
             <TouchableOpacity style={styles.retakeButton} onPress={() => setPhoto(null)}>
               <Text style={styles.controlText}>↺ Retake</Text>
             </TouchableOpacity>
+            <TouchableOpacity style={styles.processButton} onPress={processPhoto}>
+              <Text style={styles.controlText}>🎤 Ask Question</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={styles.saveButton} onPress={saveToGallery}>
-              <Text style={styles.controlText}>💾 Save</Text>
+              <Text style={styles.controlText}>💾 Save & Ask</Text>
             </TouchableOpacity>
           </View>
-        </View>
-      )}
-    </View>
+        )}
+      </View>
+    </>
   );
 }
 
@@ -109,8 +151,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   message: {
     color: '#fff',
@@ -150,7 +190,7 @@ const styles = StyleSheet.create({
   },
   controlText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
   },
   captureButton: {
@@ -179,33 +219,40 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
-    width: '100%',
   },
   previewImage: {
     width: '100%',
     height: '85%',
     resizeMode: 'contain',
-    borderRadius: 12,
   },
   previewControls: {
+    position: 'absolute',
+    bottom: 40,
+    left: 20,
+    right: 20,
     flexDirection: 'row',
     justifyContent: 'space-around',
-    width: '100%',
-    marginTop: 20,
+    gap: 8,
   },
   retakeButton: {
-    padding: 16,
+    padding: 14,
     backgroundColor: '#ff3b30',
     borderRadius: 12,
-    minWidth: 120,
+    flex: 1,
+    alignItems: 'center',
+  },
+  processButton: {
+    padding: 14,
+    backgroundColor: '#007AFF',
+    borderRadius: 12,
+    flex: 1,
     alignItems: 'center',
   },
   saveButton: {
-    padding: 16,
+    padding: 14,
     backgroundColor: '#34c759',
     borderRadius: 12,
-    minWidth: 120,
+    flex: 1,
     alignItems: 'center',
   },
 });

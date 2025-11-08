@@ -1,46 +1,39 @@
-import { textToSpeech } from "./tts";
-import { speechToText } from "./stt";
-import fs from "fs";
 import readline from "readline";
+import { textToSpeech } from "./tts.ts";
+import { speechToText } from "./stt.ts";
 
-// Utility to prompt input
+// setup readline interface for input
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout
 });
 
-async function testTTS() {
-  rl.question("Enter text to convert to speech: ", async (inputText) => {
-    try {
-      console.log("Generating TTS...");
-      const audioPath = await textToSpeech(inputText);
-      console.log("TTS audio saved at:", audioPath);
-    } catch (err) {
-      console.error("TTS error:", err);
-    }
-
-    testSTT(); // move on to STT test
-  });
+// promisified question
+function questionAsync(query: string): Promise<string> {
+  return new Promise(resolve => rl.question(query, resolve));
 }
 
-async function testSTT() {
-  rl.question("Enter path to audio file to convert to text: ", async (audioPath) => {
-    if (!fs.existsSync(audioPath)) {
-      console.error("File does not exist.");
-      rl.close();
-      return;
-    }
+async function main() {
+  try {
+    // text input from user
+    const inputText = await questionAsync("Enter text to convert to speech: ");
 
-    try {
-      console.log("Converting speech to text...");
-      const text = await speechToText(audioPath);
-      console.log("Transcribed text:", text);
-    } catch (err) {
-      console.error("STT error:", err);
-    }
+    // TTS
+    console.log("Generating TTS audio...");
+    const ttsFile = await textToSpeech(inputText);
+    console.log(`TTS audio saved as: ${ttsFile}`);
 
+    // feed TTS into STT
+    console.log("Transcribing TTS audio with STT...");
+    const transcribedText = await speechToText(ttsFile);
+    console.log("Transcribed text:", transcribedText);
+
+  } catch (err) {
+    console.error("Error:", err);
+  } finally {
     rl.close();
-  });
+  }
 }
 
-testTTS();
+// run test
+main();
