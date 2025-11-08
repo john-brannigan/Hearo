@@ -1,12 +1,17 @@
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/next';
 
 export async function uploadImageToBackend(localUri: string): Promise<{ gsUri?: string; httpsUrl?: string; }> {
   const BACKEND_URL = (process.env.BACKEND_URL as string) || 'http://localhost:3000';
   if (!localUri) throw new Error('localUri required');
 
   console.log('Reading local image file...');
-  // Read file as base64
-  const base64 = await FileSystem.readAsStringAsync(localUri, { encoding: 'base64' as any });
+  
+  // Read file as bytes using new FileSystem API
+  const file = new FileSystem.File(localUri);
+  const bytes = await file.bytes();
+  
+  // Convert bytes to base64
+  const base64 = btoa(String.fromCharCode(...bytes));
 
   const filename = localUri.split('/').pop() || `photo-${Date.now()}.jpg`;
 
