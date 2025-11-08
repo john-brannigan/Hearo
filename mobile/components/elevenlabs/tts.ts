@@ -1,7 +1,6 @@
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system/next';
 import * as Speech from 'expo-speech';
-import { ELEVENLABS_API_KEY } from '@env';
 
 const ELEVENLABS_MODEL = "eleven_turbo_v2";
 
@@ -33,6 +32,9 @@ async function textToSpeechElevenLabs(text: string): Promise<string> {
   });
 
   console.log('Calling ElevenLabs API...');
+  if (!process.env.EXPO_PUBLIC_ELEVENLABS_API_KEY) {
+    throw new Error('Missing ELEVENLABS_API_KEY environment variable');
+  }
   const response = await fetch(
     `https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`,
     {
@@ -40,7 +42,7 @@ async function textToSpeechElevenLabs(text: string): Promise<string> {
       headers: {
         'Accept': 'audio/mpeg',
         'Content-Type': 'application/json',
-        'xi-api-key': ELEVENLABS_API_KEY,
+        'xi-api-key': process.env.EXPO_PUBLIC_ELEVENLABS_API_KEY,
       },
       body: JSON.stringify({
         text,

@@ -1,7 +1,6 @@
 import * as FileSystem from 'expo-file-system/legacy';
-import { BACKEND_URL } from '@env';
 
-const BACKEND_API_URL = BACKEND_URL || 'http://localhost:3000';
+const BACKEND_API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3000';
 
 /**
  * Get a signed URL from the backend for uploading to Google Cloud Storage

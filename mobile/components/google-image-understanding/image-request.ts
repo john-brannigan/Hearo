@@ -1,15 +1,9 @@
 // ...existing code...
 import { GoogleGenAI } from '@google/genai';
-import { GOOGLE_CLOUD_LOCATION, GOOGLE_CLOUD_PROJECT } from '@env';
 
-const DEFAULT_LOCATION = GOOGLE_CLOUD_LOCATION || 'us-central1';
-const DEFAULT_PROJECT = GOOGLE_CLOUD_PROJECT || 'aiatl2025';
+const DEFAULT_LOCATION = process.env.EXPO_PUBLIC_GOOGLE_CLOUD_LOCATION || 'us-central1';
+const DEFAULT_PROJECT = process.env.EXPO_PUBLIC_GOOGLE_CLOUD_PROJECT;
 
-console.log('Google Cloud Config:', { 
-  project: DEFAULT_PROJECT, 
-  location: DEFAULT_LOCATION,
-  fromEnv: { GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_LOCATION }
-});
 
 const PROMPT = `You are describing what is in front of a blind person. Speak directly to them, using phrases like 'you are seeing…' or 'in front of you…'. Describe the scene in detail. Avoid unnecessary technical jargon. Make the description clear and easy to understand.`;
 
@@ -56,7 +50,7 @@ export default async function sendImageWithPrompt(
     vertexai: true,
     project: projectId,
     location,
-    apiKey: "AQ.Ab8RN6I3DO0ruPa-kJSanXmqsqs21VILyxCiybr59x-OR_P8FQ",
+    apiKey: process.env.EXPO_PUBLIC_GOOGLE_API_KEY,
   });
 
   const image = {

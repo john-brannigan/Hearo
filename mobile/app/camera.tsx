@@ -1,4 +1,4 @@
-import { Stack, useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import React, { useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet, Alert } from 'react-native';
 import { CameraView, useCameraPermissions, CameraType } from 'expo-camera';
@@ -6,7 +6,7 @@ import * as MediaLibrary from 'expo-media-library';
 
 export default function CameraScreen() {
   const camRef = useRef<CameraView>(null);
-  const router = useRouter();
+  const navigation = useNavigation();
   const [permission, requestPermission] = useCameraPermissions();
   const [mediaPermission, requestMediaPermission] = MediaLibrary.usePermissions();
   const [facing, setFacing] = useState<CameraType>('back');
@@ -15,31 +15,20 @@ export default function CameraScreen() {
 
   if (!permission) {
     return (
-      <>
-        <Stack.Screen
-          options={{
-            headerShown: false,
-            tabBarStyle: { display: 'none' }
-          }}
-        />
         <View style={styles.container}>
           <Text style={styles.message}>Loading camera...</Text>
         </View>
-      </>
     );
   }
 
   if (!permission.granted) {
     return (
-      <>
-        <Stack.Screen options={{ title: 'Camera Permission' }} />
         <View style={styles.container}>
           <Text style={styles.message}>We need camera access to take photos</Text>
           <TouchableOpacity onPress={requestPermission} style={styles.button}>
             <Text style={styles.buttonText}>Grant Permission</Text>
           </TouchableOpacity>
         </View>
-      </>
     );
   }
 
@@ -76,10 +65,7 @@ export default function CameraScreen() {
       
       // Navigate to TTS screen with the photo
       console.log('Navigating to TTS with photo:', photo);
-      router.push({
-        pathname: '/tts' as any,
-        params: { photoUri: photo }
-      });
+      navigation.navigate('TTS' as any, { photoUri: photo });
       
     } catch (e) {
       console.error('Error saving photo:', e);
@@ -94,10 +80,7 @@ export default function CameraScreen() {
     console.log('Processing photo for TTS:', photo);
     
     // Navigate to TTS screen with the photo
-    router.push({
-      pathname: '/tts' as any,
-      params: { photoUri: photo }
-    });
+      navigation.navigate('TTS' as any, { photoUri: photo });
   };
 
   const toggleCameraFacing = () => {
@@ -105,8 +88,6 @@ export default function CameraScreen() {
   };
 
   return (
-    <>
-      <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.container}>
         {!photo ? (
           <CameraView style={styles.camera} facing={facing} ref={camRef} />
@@ -148,7 +129,6 @@ export default function CameraScreen() {
           </View>
         )}
       </View>
-    </>
   );
 }
 
