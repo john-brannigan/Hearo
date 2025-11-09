@@ -20,9 +20,8 @@ export default function HomeScreen() {
 
   const handleTutorialPress = async () => {
     setIsSpeaking(true);
-    const tutorialText = `Welcome to Hearo! This app helps you understand your surroundings using AI. 
-    Tap the camera button to take a photo. Then, use voice commands to ask questions about what's in the image. 
-    I'll use artificial intelligence to analyze the photo and tell you what I see. Let's get started!`;
+    const tutorialText = `Welcome to Hearo! This app strives to help visually-impaired individuals aid in understanding their surroundings. 
+    The home page consists of a large camera button to take a photo for image analysis. Use the analyze button to summarize the image, the voice recording button to ask a question about the image with AI analysis, and a speech speed slider to control how fast the AI is talking. Let's get started!`;
     
     try {
       await textToSpeech(tutorialText);
