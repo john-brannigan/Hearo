@@ -21,9 +21,11 @@ export default function HomeScreen() {
       {/* Header with Title and Logo */}
       <View style={styles.header}>
         <Text style={styles.title}>Hearo</Text>
-        <View style={styles.logoPlaceholder}>
-          {/* Small logo will go here */}
-        </View>
+        <Image 
+          source={require('@/assets/images/hearo-logo-new.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
       </View>
 
       {/* Big Circular Camera Button */}
@@ -71,6 +73,10 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     backgroundColor: '#e0e0e0',
   },
+  logo: {
+    width: 150,
+    height: 150,
+  },
   title: {
     fontSize: 64,
     fontWeight: 'bold',
@@ -83,9 +89,9 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
   },
   cameraButton: {
-    width: 280,
-    height: 280,
-    borderRadius: 140,
+    width: 320,
+    height: 320,
+    borderRadius: 24,
     backgroundColor: '#5E17EB',
     justifyContent: 'center',
     alignItems: 'center',
@@ -100,8 +106,8 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.95 }],
   },
   cameraIcon: {
-    width: 120,
-    height: 120,
+    width: 150,
+    height: 150,
   },
   tapToStart: {
     marginTop: 24,
