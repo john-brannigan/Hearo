@@ -1,107 +1,122 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet, TouchableOpacity } from 'react-native';
-
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { useNavigation } from '@react-navigation/native';
+import { StyleSheet, View, Pressable, Text, Image, StatusBar } from 'react-native';
+import { useState } from 'react';
+import CameraScreen from './camera';
 
 export default function HomeScreen() {
-  const navigation = useNavigation();
+  const [showCamera, setShowCamera] = useState(false);
+
+  const handleCameraPress = () => {
+    console.log('Camera button pressed!');
+    setShowCamera(true);
+  };
+
+  // If camera screen should be shown, render it instead
+  if (showCamera) {
+    return <CameraScreen />;
+  }
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#f5f5f5" />
+      {/* Header with Title and Logo */}
+      <View style={styles.header}>
+        <Text style={styles.title}>Hearo</Text>
+        <View style={styles.logoPlaceholder}>
+          {/* Small logo will go here */}
+        </View>
+      </View>
 
-      {/* Camera Button */}
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">📸 Camera Feature</ThemedText>
-        <ThemedText>
-          Take photos and save them to your gallery.
-        </ThemedText>
-        <TouchableOpacity 
-          style={styles.cameraButton}
-          onPress={() => navigation.navigate('Camera' as any)}>
-          <ThemedText style={styles.cameraButtonText}>Open Camera</ThemedText>
-        </TouchableOpacity>
-      </ThemedView>
+      {/* Big Circular Camera Button */}
+      <View style={styles.mainContent}>
+        <Pressable 
+          style={({ pressed }) => [
+            styles.cameraButton,
+            pressed && styles.cameraButtonPressed
+          ]}
+          onPress={handleCameraPress}
+        >
+          <Image 
+            source={{ uri: 'https://img.icons8.com/?size=100&id=11772&format=png&color=FFFFFF' }}
+            style={styles.cameraIcon}
+          />
+        </Pressable>
+        <Text style={styles.tapToStart}>Tap to Start</Text>
+      </View>
 
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <TouchableOpacity onPress={() => navigation.navigate('Modal' as any)}>
-          <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        </TouchableOpacity>
-
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+      {/* Features */}
+      <View style={styles.features}>
+        <Text style={styles.featureText}>• AI-powered image analysis</Text>
+        <Text style={styles.featureText}>• Voice commands & text-to-speech</Text>
+        <Text style={styles.featureText}>• Real-time object recognition</Text>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
+  container: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  header: {
+    paddingTop: 60,
+    paddingBottom: 30,
     alignItems: 'center',
-    gap: 8,
+    flexDirection: 'column',
+    gap: 16,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  logoPlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#e0e0e0',
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  title: {
+    fontSize: 64,
+    fontWeight: 'bold',
+    color: '#5E17EB',
+  },
+  mainContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
   },
   cameraButton: {
-    backgroundColor: '#007AFF',
-    padding: 16,
-    borderRadius: 12,
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    backgroundColor: '#5E17EB',
+    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 12,
   },
-  cameraButtonText: {
-    color: '#fff',
-    fontSize: 16,
+  cameraButtonPressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.95 }],
+  },
+  cameraIcon: {
+    width: 120,
+    height: 120,
+  },
+  tapToStart: {
+    marginTop: 24,
+    fontSize: 20,
     fontWeight: '600',
+    color: '#5E17EB',
+  },
+  features: {
+    paddingHorizontal: 40,
+    paddingBottom: 40,
+    gap: 8,
+  },
+  featureText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
   },
 });
-

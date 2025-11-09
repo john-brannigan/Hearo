@@ -1,6 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import React, { useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, Image, StyleSheet, Alert, Pressable } from 'react-native';
 import { CameraView, useCameraPermissions, CameraType } from 'expo-camera';
 import * as MediaLibrary from 'expo-media-library';
 
@@ -56,22 +56,16 @@ export default function CameraScreen() {
 
   return (
       <View style={styles.container}>
-        <CameraView style={styles.camera} facing={facing} ref={camRef} />
+        {/* Wrap camera in Pressable to make it tappable */}
+        <Pressable style={styles.camera} onPress={takePicture} disabled={isTaking}>
+          <CameraView style={styles.camera} facing={facing} ref={camRef} />
+        </Pressable>
 
         {/* Controls overlay */}
         <View style={styles.controls}>
           <TouchableOpacity style={styles.flipButton} onPress={toggleCameraFacing}>
             <Text style={styles.controlText}>🔄 Flip</Text>
           </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={[styles.captureButton, isTaking && styles.captureButtonDisabled]} 
-            onPress={takePicture} 
-            disabled={isTaking}>
-            <View style={styles.captureButtonInner} />
-          </TouchableOpacity>
-
-          <View style={styles.placeholder} />
         </View>
       </View>
   );
