@@ -10,10 +10,18 @@ app.use(cors());
 app.use(express.json());
 
 // Initialize Google Cloud Storage
-const storage = new Storage({
-  projectId: process.env.GCP_PROJECT_ID,
-  keyFilename: process.env.GCP_KEY_FILE // Path to service account JSON
-});
+// When running on Cloud Run, authentication is automatic
+// When running locally, it uses the keyFilename
+const storageConfig = {
+  projectId: process.env.GCP_PROJECT_ID
+};
+
+// Only use key file if it's specified (for local development)
+if (process.env.GCP_KEY_FILE) {
+  storageConfig.keyFilename = process.env.GCP_KEY_FILE;
+}
+
+const storage = new Storage(storageConfig);
 
 const BUCKET_NAME = process.env.GCS_BUCKET_NAME;
 
