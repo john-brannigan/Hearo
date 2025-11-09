@@ -1,49 +1,61 @@
-import { Audio } from 'expo-av';
-import * as FileSystem from 'expo-file-system/next';
-import * as Speech from 'expo-speech';
+// tts.ts
+import * as Speech from "expo-speech";
+import * as FileSystem from "expo-file-system/legacy";
+import { Audio } from "expo-av"; // new package for audio playback
 
 const ELEVENLABS_MODEL = "eleven_turbo_v2";
-
 const VOICE_ID = "iP95p4xoKVk53GoZ742B";
 
-const getCacheDirectory = () => {
-  return FileSystem.Paths.cache + '/';
-};
+// Load API key safely
+const rawApiKey = process.env.EXPO_PUBLIC_ELEVENLABS_API_KEY;
+if (!rawApiKey) {
+  throw new Error("ELEVENLABS_API_KEY is not defined in environment variables.");
+}
+const ELEVENLABS_API_KEY: string = rawApiKey;
+
+const getCacheDirectory = (): string =>
+  FileSystem.cacheDirectory ?? FileSystem.documentDirectory ?? "";
+
+// Helper: convert Uint8Array to base64 (React Native compatible)
+function uint8ArrayToBase64(u8Arr: Uint8Array): string {
+  let CHUNK_SIZE = 0x8000;
+  let index = 0;
+  let length = u8Arr.length;
+  let result = '';
+  let slice: Uint8Array;
+
+  while (index < length) {
+    slice = u8Arr.subarray(index, Math.min(index + CHUNK_SIZE, length));
+    result += String.fromCharCode.apply(null, slice as unknown as number[]);
+    index += CHUNK_SIZE;
+  }
+
+  return global.btoa(result);
+}
 
 export async function textToSpeech(text: string): Promise<string> {
   try {
-    console.log('Attempting ElevenLabs TTS...');
-    const filePath = await textToSpeechElevenLabs(text);
-    console.log('ElevenLabs TTS succeeded');
-    return filePath;
+    const fileUri = await textToSpeechElevenLabs(text);
+    return fileUri;
   } catch (error) {
-    console.warn('ElevenLabs TTS failed, falling back to native TTS:', error);
-    const filePath = await textToSpeechNative(text);
-    console.log('Native TTS succeeded');
-    return filePath;
+    console.warn("⚠️ ElevenLabs failed, falling back to native:", error);
+    await textToSpeechNative(text);
+    return "native";
   }
 }
 
 async function textToSpeechElevenLabs(text: string): Promise<string> {
-  await Audio.setAudioModeAsync({
-    playsInSilentModeIOS: true,
-    staysActiveInBackground: false,
-    shouldDuckAndroid: true,
-  });
+  const headers: HeadersInit = {
+    Accept: "audio/mpeg",
+    "Content-Type": "application/json",
+    "xi-api-key": ELEVENLABS_API_KEY,
+  };
 
-  console.log('Calling ElevenLabs API...');
-  if (!process.env.EXPO_PUBLIC_ELEVENLABS_API_KEY) {
-    throw new Error('Missing ELEVENLABS_API_KEY environment variable');
-  }
   const response = await fetch(
     `https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`,
     {
-      method: 'POST',
-      headers: {
-        'Accept': 'audio/mpeg',
-        'Content-Type': 'application/json',
-        'xi-api-key': process.env.EXPO_PUBLIC_ELEVENLABS_API_KEY,
-      },
+      method: "POST",
+      headers,
       body: JSON.stringify({
         text,
         model_id: ELEVENLABS_MODEL,
@@ -53,31 +65,31 @@ async function textToSpeechElevenLabs(text: string): Promise<string> {
   );
 
   if (!response.ok) {
-    const errorBody = await response.text();
-    console.error('ElevenLabs API error response:', errorBody);
-    throw new Error(`TTS request failed: ${response.status} - ${errorBody}`);
+    const errorText = await response.text();
+    console.error("ElevenLabs API error:", response.status, errorText);
+    throw new Error(errorText);
   }
 
   const arrayBuffer = await response.arrayBuffer();
-  const audioBytes = new Uint8Array(arrayBuffer);
+  const uint8Array = new Uint8Array(arrayBuffer);
 
-  // Save to temporary file
+  const base64Audio = uint8ArrayToBase64(uint8Array);
+
   const fileName = `temp-audio-${Date.now()}.mp3`;
   const fileUri = getCacheDirectory() + fileName;
 
-  const file = new FileSystem.File(fileUri);
-  await file.write(audioBytes);
+  await FileSystem.writeAsStringAsync(fileUri, base64Audio, { encoding: "base64" });
 
-  console.log('Audio file saved at:', fileUri);
+  // Play audio using expo-audio
+  const playbackObject = new Audio.Sound();
+  await playbackObject.loadAsync({ uri: fileUri });
+  await playbackObject.playAsync();
+
   return fileUri;
 }
 
-// Fallback native text-to-speech using Expo Speech
-async function textToSpeechNative(text: string): Promise<string> {
+async function textToSpeechNative(text: string): Promise<void> {
   return new Promise((resolve) => {
-    Speech.speak(text, {
-      onDone: () => resolve('native'),
-      language: 'en',
-    });
+    Speech.speak(text, { onDone: resolve, language: "en" });
   });
 }
