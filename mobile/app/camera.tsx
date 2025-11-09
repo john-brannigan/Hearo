@@ -10,7 +10,6 @@ export default function CameraScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [mediaPermission, requestMediaPermission] = MediaLibrary.usePermissions();
   const [facing, setFacing] = useState<CameraType>('back');
-  const [photo, setPhoto] = useState<string | null>(null);
   const [isTaking, setIsTaking] = useState(false);
 
   if (!permission) {
@@ -38,7 +37,11 @@ export default function CameraScreen() {
     try {
       const result = await camRef.current.takePictureAsync({ quality: 0.7 });
       console.log('Photo taken:', result.uri);
-      setPhoto(result.uri);
+      
+      // Automatically navigate to TTS screen with the photo
+      console.log('Auto-navigating to TTS with photo:', result.uri);
+      navigation.navigate('TTS' as any, { photoUri: result.uri });
+      
     } catch (e) {
       console.error('Error taking picture:', e);
       Alert.alert('Error', 'Failed to take picture');
@@ -47,87 +50,29 @@ export default function CameraScreen() {
     }
   };
 
-  const saveToGallery = async () => {
-    if (!photo) return;
-    
-    if (!mediaPermission?.granted) {
-      const result = await requestMediaPermission();
-      if (!result.granted) {
-        Alert.alert('Permission Required', 'Media library access is needed to save photos');
-        return;
-      }
-    }
-    
-    try {
-      await MediaLibrary.createAssetAsync(photo);
-      console.log('Photo saved to gallery');
-      Alert.alert('Success', 'Photo saved! 📸');
-      
-      // Navigate to TTS screen with the photo
-      console.log('Navigating to TTS with photo:', photo);
-      navigation.navigate('TTS' as any, { photoUri: photo });
-      
-    } catch (e) {
-      console.error('Error saving photo:', e);
-      Alert.alert('Error', 'Failed to save photo');
-    }
-  };
-
-  // Process photo without saving to gallery
-  const processPhoto = () => {
-    if (!photo) return;
-    
-    console.log('Processing photo for TTS:', photo);
-    
-    // Navigate to TTS screen with the photo
-      navigation.navigate('TTS' as any, { photoUri: photo });
-  };
-
   const toggleCameraFacing = () => {
     setFacing(current => (current === 'back' ? 'front' : 'back'));
   };
 
   return (
       <View style={styles.container}>
-        {!photo ? (
-          <CameraView style={styles.camera} facing={facing} ref={camRef} />
-        ) : null}
-        
-        {photo && (
-          <View style={styles.preview}>
-            <Image source={{ uri: photo }} style={styles.previewImage} />
-          </View>
-        )}
+        <CameraView style={styles.camera} facing={facing} ref={camRef} />
 
         {/* Controls overlay */}
-        {!photo ? (
-          <View style={styles.controls}>
-            <TouchableOpacity style={styles.flipButton} onPress={toggleCameraFacing}>
-              <Text style={styles.controlText}>🔄 Flip</Text>
-            </TouchableOpacity>
+        <View style={styles.controls}>
+          <TouchableOpacity style={styles.flipButton} onPress={toggleCameraFacing}>
+            <Text style={styles.controlText}>🔄 Flip</Text>
+          </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={[styles.captureButton, isTaking && styles.captureButtonDisabled]} 
-              onPress={takePicture} 
-              disabled={isTaking}>
-              <View style={styles.captureButtonInner} />
-            </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.captureButton, isTaking && styles.captureButtonDisabled]} 
+            onPress={takePicture} 
+            disabled={isTaking}>
+            <View style={styles.captureButtonInner} />
+          </TouchableOpacity>
 
-            <View style={styles.placeholder} />
-          </View>
-        ) : (
-          <View style={styles.previewControls}>
-            <TouchableOpacity style={styles.retakeButton} onPress={() => setPhoto(null)}>
-              <Text style={styles.controlText}>↺ Retake</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.processButton} onPress={processPhoto}>
-              <Text style={styles.controlText}>🎤 Ask Question</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.saveButton} onPress={saveToGallery}>
-              <Text style={styles.controlText}>💾 Save & Ask</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+          <View style={styles.placeholder} />
+        </View>
       </View>
   );
 }
