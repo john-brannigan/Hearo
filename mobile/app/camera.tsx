@@ -64,7 +64,7 @@ export default function CameraScreen() {
         {/* Controls overlay */}
         <View style={styles.controls}>
           <TouchableOpacity style={styles.flipButton} onPress={toggleCameraFacing}>
-            <Text style={styles.controlText}>🔄 Flip</Text>
+            <Text style={styles.controlText}>🔄 Flip Camera</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -103,19 +103,21 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 30,
   },
   flipButton: {
-    padding: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 32,
     backgroundColor: '#00000099',
-    borderRadius: 12,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#ffffff66',
   },
   controlText: {
     color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
   },
   captureButton: {
     width: 70,

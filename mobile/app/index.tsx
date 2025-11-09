@@ -20,8 +20,17 @@ export default function HomeScreen() {
 
   const handleTutorialPress = async () => {
     setIsSpeaking(true);
-    const tutorialText = `Welcome to Hearo! This app strives to help visually-impaired individuals aid in understanding their surroundings. 
-    The home page consists of a large camera button to take a photo for image analysis. Use the analyze button to summarize the image, the voice recording button to ask a question about the image with AI analysis, and a speech speed slider to control how fast the AI is talking. Let's get started!`;
+    const tutorialText = `Welcome to Hearo, your AI-powered vision assistant. 
+    
+    Here's how to use the app:
+    
+    On the home screen, you'll find a large camera button in the center. Below it is the How to Use button. Press the camera button to open the camera. 
+    
+    Once in the camera, tap anywhere on the screen to capture a photo. At the bottom center, there's a flip camera button to switch between front and back cameras.
+    
+    After taking a photo, you'll see the analysis screen. At the top is your captured image - tap it anytime to go back to the camera and take a new photo. Below the image on the left is the analyze button to get an AI description of what's in the image. To the right of that is the microphone button to ask specific questions about the photo. At the bottom is a speech speed slider - slide left for slower, right for faster speech.
+    
+    That's it! Let's get started.`;
     
     try {
       await textToSpeech(tutorialText, 1.0);
@@ -64,7 +73,6 @@ export default function HomeScreen() {
             style={styles.cameraIcon}
           />
         </Pressable>
-        <Text style={styles.tapToStart}>Tap to Start</Text>
         
         {/* Tutorial Button */}
         <Pressable 
@@ -115,13 +123,14 @@ const styles = StyleSheet.create({
   },
   mainContent: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     alignItems: 'center',
-    paddingVertical: 40,
+    paddingTop: 20,
+    paddingBottom: 40,
   },
   cameraButton: {
-    width: 320,
-    height: 320,
+    width: 360,
+    height: 360,
     borderRadius: 24,
     backgroundColor: '#5E17EB',
     justifyContent: 'center',
@@ -137,29 +146,23 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.95 }],
   },
   cameraIcon: {
-    width: 150,
-    height: 150,
-  },
-  tapToStart: {
-    marginTop: 24,
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#5E17EB',
+    width: 170,
+    height: 170,
   },
   tutorialButton: {
-    marginTop: 20,
-    paddingVertical: 16,
-    paddingHorizontal: 32,
+    marginTop: 40,
+    paddingVertical: 28,
+    paddingHorizontal: 60,
     backgroundColor: '#fff',
-    borderRadius: 12,
-    borderWidth: 2,
+    borderRadius: 20,
+    borderWidth: 4,
     borderColor: '#5E17EB',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    minWidth: 200,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
+    minWidth: 320,
     alignItems: 'center',
   },
   tutorialButtonPressed: {
@@ -167,8 +170,8 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.98 }],
   },
   tutorialButtonText: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 26,
+    fontWeight: '700',
     color: '#5E17EB',
   },
 });
