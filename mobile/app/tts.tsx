@@ -1,7 +1,6 @@
 import { useNavigation, useRoute } from '@react-navigation/native';
 import React, { useState, useRef, useMemo, useCallback } from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet, ScrollView, Alert, ActivityIndicator, PanResponder, GestureResponderEvent } from 'react-native';
-import Slider from '@react-native-community/slider';
 import * as Haptics from 'expo-haptics';
 import { textToSpeech } from '@/components/elevenlabs/tts';
 import { startRecording, stopRecording, requestPermissions, transcribeAudio } from '@/components/elevenlabs/stt-native';
