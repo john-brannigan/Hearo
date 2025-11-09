@@ -1,5 +1,5 @@
 import { useNavigation, useRoute } from '@react-navigation/native';
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { textToSpeech } from '@/components/elevenlabs/tts';
 import { startRecording, stopRecording, requestPermissions, transcribeAudio } from '@/components/elevenlabs/stt-native';
@@ -12,10 +12,8 @@ export default function TTSScreen() {
   // @ts-ignore - route.params typing varies
   const photoUri = (route.params && (route.params as any).photoUri) as string;
   
-  const [question, setQuestion] = useState<string>('');
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const [recordedAudioUri, setRecordedAudioUri] = useState<string>('');
   const [transcribedText, setTranscribedText] = useState<string>('');
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [aiResponse, setAiResponse] = useState<string>('');
@@ -23,65 +21,6 @@ export default function TTSScreen() {
 
   console.log('TTS Screen loaded with photo:', photoUri);
 
-  // Generate a question based on the photo
-  const generateQuestion = () => {
-    const questions = [
-      "What do you see in this image?",
-      "Can you describe what's happening in this photo?",
-      "What objects can you identify in this picture?",
-      "Tell me about the scene in this image.",
-      "What's the main subject of this photograph?",
-      "What colors are prominent in this image?",
-      "Can you describe the composition of this photo?"
-    ];
-    
-    const randomQuestion = questions[Math.floor(Math.random() * questions.length)];
-    console.log('Generated question:', randomQuestion);
-    setQuestion(randomQuestion);
-  };
-
-  // Speak the question using TTS
-  const speakQuestion = async () => {
-    if (!question || isSpeaking) return;
-    
-    setIsSpeaking(true);
-    console.log('Starting TTS for:', question);
-    
-    try {
-      await textToSpeech(question);
-      console.log('TTS completed successfully');
-    } catch (error) {
-      console.error('Error speaking:', error);
-      Alert.alert('Error', 'Failed to speak the question.');
-    } finally {
-      setIsSpeaking(false);
-    }
-  };
-
-  // Check if the transcribed text is asking about the image
-  const isAskingAboutImage = (text: string): boolean => {
-    const imageQuestions = [
-      'what is in front of me',
-      'what do you see',
-      'what is this',
-      'describe this',
-      'what am i looking at',
-      'tell me about this',
-      'what is in this image',
-      'what is in the picture',
-      'what is in the photo',
-      'analyze this',
-      'whats in front of me',
-      'whats this',
-      'describe the image',
-      'tell me what you see'
-    ];
-    
-    const lowerText = text.toLowerCase();
-    return imageQuestions.some(q => lowerText.includes(q));
-  };
-
-  // Analyze image using Google Cloud Vision API via google-image-understanding
   const analyzeImageWithAI = async () => {
     if (!photoUri) {
       Alert.alert('Error', 'No image to analyze');
@@ -129,20 +68,26 @@ export default function TTSScreen() {
     }
   };
 
-  // Mock transcribe for testing (replace with real backend call later)
-
   // Handle recording toggle
   const toggleRecording = async () => {
     if (isRecording) {
       const uri = await stopRecording();
       setIsRecording(false);
       if (uri) {
-        setRecordedAudioUri(uri);
         console.log('Audio recorded, starting transcription...');
-        setTranscribedText(await transcribeAudio(uri));
+        setIsTranscribing(true);
+        try {
+          const text = await transcribeAudio(uri);
+          setTranscribedText(text);
+        } catch (error) {
+          console.error('Transcription failed:', error);
+          Alert.alert('Error', 'Failed to transcribe audio.');
+          setTranscribedText('Transcription failed');
+        } finally {
+          setIsTranscribing(false);
+        }
       }
     } else {
-      setRecordedAudioUri('');
       setTranscribedText('');
       setAiResponse('');
       const hasPermission = await requestPermissions();
@@ -197,18 +142,6 @@ export default function TTSScreen() {
     }
   };
 
-  useEffect(() => {
-    console.log('Generating initial question');
-    generateQuestion();
-  }, []);
-
-  useEffect(() => {
-    if (question) {
-      console.log('Auto-speaking question');
-      speakQuestion();
-    }
-  }, [question]);
-
   return (
       <ScrollView style={styles.container}>
         <View style={styles.content}>
@@ -220,27 +153,6 @@ export default function TTSScreen() {
           ) : (
             <View style={styles.imageContainer}>
               <Text style={styles.errorText}>No photo provided</Text>
-            </View>
-          )}
-
-          {/* Display the question */}
-          <View style={styles.questionContainer}>
-            <Text style={styles.questionLabel}>Question:</Text>
-            <Text style={styles.questionText}>{question || 'Generating question...'}</Text>
-          </View>
-
-          {/* Audio Controls */}
-          {question && (
-            <View style={styles.ttsContainer}>
-              <Text style={styles.ttsLabel}>Audio:</Text>
-              <TouchableOpacity 
-                style={[styles.speakButton, isSpeaking && styles.speakButtonActive]}
-                onPress={speakQuestion}
-                disabled={isSpeaking}>
-                <Text style={styles.speakButtonText}>
-                  {isSpeaking ? '🔊 Speaking...' : '🔊 Speak Question'}
-                </Text>
-              </TouchableOpacity>
             </View>
           )}
 
@@ -326,11 +238,6 @@ export default function TTSScreen() {
 
           {/* Action buttons */}
           <View style={styles.buttonContainer}>
-            <TouchableOpacity 
-              style={styles.regenerateButton} 
-              onPress={generateQuestion}>
-              <Text style={styles.buttonText}>🔄 New Question</Text>
-            </TouchableOpacity>
 
             <TouchableOpacity 
               style={styles.backButton} 
