@@ -79,10 +79,32 @@ export default function TTSScreen() {
         try {
           const text = await transcribeAudio(uri);
           setTranscribedText(text);
+
+          // Immediately speak the transcribed text when available
+          if (text && text.length > 0) {
+            setIsSpeaking(true);
+            try {
+              await textToSpeech(text);
+            } catch (err) {
+              console.error('Error speaking transcribed text after recording:', err);
+            } finally {
+              setIsSpeaking(false);
+            }
+          }
         } catch (error) {
           console.error('Transcription failed:', error);
           Alert.alert('Error', 'Failed to transcribe audio.');
           setTranscribedText('Transcription failed');
+          // Speak the error so the user hears what went wrong
+          try {
+            const msg = error instanceof Error ? error.message : String(error);
+            setIsSpeaking(true);
+            await textToSpeech(`Transcription failed`);
+          } catch (speakErr) {
+            console.error('Error speaking transcription failure:', speakErr);
+          } finally {
+            setIsSpeaking(false);
+          }
         } finally {
           setIsTranscribing(false);
         }
@@ -145,7 +167,6 @@ export default function TTSScreen() {
   return (
       <ScrollView style={styles.container}>
         <View style={styles.content}>
-          {/* Display the captured image */}
           {photoUri ? (
             <TouchableOpacity style={styles.imageContainer} onPress={() => navigation.goBack()}>
               <Image source={{ uri: photoUri }} style={styles.image} />
@@ -155,24 +176,27 @@ export default function TTSScreen() {
               <Text style={styles.errorText}>No photo provided</Text>
             </View>
           )}
-
-          {/* Recording Section */}
           <View style={styles.recordingContainer}>
-            <Text style={styles.recordingLabel}>Voice Input:</Text>
-            <Text style={styles.hintText}>
-              Try saying: "What is in front of me?" or "Describe this image"
-            </Text>
             
-            <TouchableOpacity 
-              style={[styles.recordButton, isRecording && styles.recordButtonActive]}
-              onPress={toggleRecording}
-              disabled={isTranscribing || isAnalyzingImage}>
-              <Text style={styles.recordButtonText}>
-                {isRecording ? '⏹️ Stop Recording' : '🎤 Start Recording'}
-              </Text>
-            </TouchableOpacity>
+            <View style={styles.squareActionRow}>
+              <TouchableOpacity
+                style={[styles.squareActionButton, styles.recordButton, isRecording && styles.recordButtonActive]}
+                onPress={toggleRecording}
+                disabled={isTranscribing || isAnalyzingImage}
+              >
+                <Text style={styles.squareActionText}>{isRecording ? '⏹️' : '🎤'}</Text>
+                <Text style={styles.squareActionLabel}>{isRecording ? 'Stop' : 'Record'}</Text>
+              </TouchableOpacity>
 
-            {/* Show transcribing indicator */}
+              <TouchableOpacity
+                style={[styles.squareActionButton, styles.analyzeButton]}
+                onPress={analyzeImageWithAI}
+                disabled={isAnalyzingImage || isSpeaking}
+              >
+                <Text style={styles.squareActionText}>🔍</Text>
+                <Text style={styles.squareActionLabel}>Analyze</Text>
+              </TouchableOpacity>
+            </View>
             {isTranscribing && (
               <View style={styles.processingContainer}>
                 <ActivityIndicator size="small" color="#007AFF" />
@@ -180,57 +204,30 @@ export default function TTSScreen() {
               </View>
             )}
 
-            {/* Show analyzing indicator */}
             {isAnalyzingImage && (
               <View style={styles.processingContainer}>
                 <ActivityIndicator size="small" color="#5E17EB" />
                 <Text style={styles.processingText}>Uploading to cloud & analyzing...</Text>
               </View>
             )}
-
-            {/* Show transcribed text */}
             {transcribedText && !isTranscribing && !isAnalyzingImage && (
-              <View style={styles.transcribedContainer}>
+              <TouchableOpacity style={styles.transcribedContainer} onPress={speakTranscribedText} disabled={isSpeaking}>
                 <View style={styles.transcribedHeader}>
                   <Text style={styles.transcribedLabel}>You said:</Text>
-                  <TouchableOpacity onPress={speakTranscribedText} disabled={isSpeaking}>
-                    <Text style={styles.playbackButton}>
-                      {isSpeaking ? '🔊' : '▶️ Play back'}
-                    </Text>
-                  </TouchableOpacity>
                 </View>
                 <Text style={styles.transcribedText}>{transcribedText}</Text>
-              </View>
+              </TouchableOpacity>
             )}
-
-            {/* Show AI analysis result */}
             {aiResponse && (
-              <View style={styles.aiResponseContainer}>
+              <TouchableOpacity onPress={speakAIResponse} disabled={isSpeaking} style={styles.aiResponseContainer}>
                 <View style={styles.aiResponseHeader}>
                   <Text style={styles.aiResponseLabel}>🤖 AI Analysis:</Text>
-                  <TouchableOpacity onPress={speakAIResponse} disabled={isSpeaking}>
-                    <Text style={styles.playbackButton}>
-                      {isSpeaking ? '🔊' : '▶️ Play back'}
-                    </Text>
-                  </TouchableOpacity>
                 </View>
                 <ScrollView style={styles.aiResponseScroll} nestedScrollEnabled>
                   <Text style={styles.aiResponseText}>{aiResponse}</Text>
                 </ScrollView>
-              </View>
+              </TouchableOpacity>
             )}
-          </View>
-
-          {/* Manual Analysis Button */}
-          <View style={styles.manualAnalysisContainer}>
-            <TouchableOpacity 
-              style={styles.analyzeButton}
-              onPress={analyzeImageWithAI}
-              disabled={isAnalyzingImage || isSpeaking}>
-              <Text style={styles.analyzeButtonText}>
-                {isAnalyzingImage ? '🔄 Analyzing...' : '🔍 Analyze Image Now'}
-              </Text>
-            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
@@ -338,25 +335,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  recordingLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
-    marginBottom: 8,
-    textTransform: 'uppercase',
-  },
-  hintText: {
-    fontSize: 12,
-    color: '#007AFF',
-    marginBottom: 8,
-    fontStyle: 'italic',
-  },
-  warningText: {
-    fontSize: 11,
-    color: '#ff9500',
-    marginBottom: 12,
-    fontStyle: 'italic',
-  },
   recordButton: {
     backgroundColor: '#ff3b30',
     padding: 16,
@@ -453,11 +431,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
   },
-  analyzeButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  /* analyzeButtonText removed (unused) */
   buttonContainer: {
     gap: 12,
   },
@@ -483,5 +457,29 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  /* Square action buttons row */
+  squareActionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginTop: 12,
+  },
+  squareActionButton: {
+    width: '48%',
+    aspectRatio: 1,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  squareActionText: {
+    fontSize: 44,
+    marginBottom: 10,
+  },
+  squareActionLabel: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#fff',
   },
 });
