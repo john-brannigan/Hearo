@@ -21,7 +21,7 @@ export default function TTSScreen() {
 
   console.log('TTS Screen loaded with photo:', photoUri);
 
-  const analyzeImageWithAI = async () => {
+  const analyzeImageWithAI = async (promptOverride?: string) => {
     if (!photoUri) {
       Alert.alert('Error', 'No image to analyze');
       return;
@@ -48,7 +48,8 @@ export default function TTSScreen() {
       
       // Use the gs:// or https:// URI from Google Cloud Storage
       
-      const result = await sendImageWithPrompt(cloudUri, transcribedText);
+  const promptToUse = promptOverride ?? transcribedText;
+  const result = await sendImageWithPrompt(cloudUri, promptToUse);
       
       console.log('AI Analysis result:', result);
       setAiResponse(result);
@@ -89,6 +90,13 @@ export default function TTSScreen() {
               console.error('Error speaking transcribed text after recording:', err);
             } finally {
               setIsSpeaking(false);
+            }
+
+            // After speaking finishes, automatically analyze the image using the transcribed text as the prompt
+            try {
+              await analyzeImageWithAI(text);
+            } catch (err) {
+              console.error('Automatic image analysis after speech failed:', err);
             }
           }
         } catch (error) {
@@ -190,7 +198,7 @@ export default function TTSScreen() {
 
               <TouchableOpacity
                 style={[styles.squareActionButton, styles.analyzeButton]}
-                onPress={analyzeImageWithAI}
+                onPress={() => analyzeImageWithAI()}
                 disabled={isAnalyzingImage || isSpeaking}
               >
                 <Text style={styles.squareActionText}>🔍</Text>
