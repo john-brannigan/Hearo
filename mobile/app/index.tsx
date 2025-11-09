@@ -25,7 +25,7 @@ export default function HomeScreen() {
     I'll use artificial intelligence to analyze the photo and tell you what I see. Let's get started!`;
     
     try {
-      await textToSpeech(tutorialText);
+      await textToSpeech(tutorialText, 1.0);
     } catch (error) {
       console.error('TTS error:', error);
     } finally {
