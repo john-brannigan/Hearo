@@ -1,7 +1,6 @@
 const express = require('express');
 const { Storage } = require('@google-cloud/storage');
 const cors = require('cors');
-require('dotenv').config();
 
 const app = express();
 
@@ -10,18 +9,10 @@ app.use(cors());
 app.use(express.json());
 
 // Initialize Google Cloud Storage
-// When running on Cloud Run, authentication is automatic
-// When running locally, it uses the keyFilename
-const storageConfig = {
+// Cloud Run provides automatic authentication via service account
+const storage = new Storage({
   projectId: process.env.GCP_PROJECT_ID
-};
-
-// Only use key file if it's specified (for local development)
-if (process.env.GCP_KEY_FILE) {
-  storageConfig.keyFilename = process.env.GCP_KEY_FILE;
-}
-
-const storage = new Storage(storageConfig);
+});
 
 const BUCKET_NAME = process.env.GCS_BUCKET_NAME;
 
@@ -76,15 +67,10 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 
-// Listen on all network interfaces (0.0.0.0) to allow mobile device connections
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ Server running on http://localhost:${PORT}`);
-  console.log(`📱 Also accessible at http://143.215.103.93:${PORT}`);
+app.listen(PORT, () => {
+  console.log(`✅ Server running on port ${PORT}`);
   console.log(`📦 Bucket: ${BUCKET_NAME}`);
   console.log(`🔐 Project: ${process.env.GCP_PROJECT_ID}`);
-  console.log('\nEndpoints:');
-  console.log(`  GET  /health`);
-  console.log(`  POST /api/get-upload-url`);
 });

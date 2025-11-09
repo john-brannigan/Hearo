@@ -1,8 +1,8 @@
 // ...existing code...
 import { GoogleGenAI } from '@google/genai';
 
-const DEFAULT_LOCATION = process.env.EXPO_PUBLIC_GOOGLE_CLOUD_LOCATION || 'us-central1';
-const DEFAULT_PROJECT = process.env.EXPO_PUBLIC_GOOGLE_CLOUD_PROJECT;
+const DEFAULT_PROJECT = 'aiatl2025';
+const DEFAULT_LOCATION = 'us-central1';
 
 
 const PROMPT = `Speak directly to them, using phrases like 'you are seeing…' or 'in front of you…'. Summarize the scene concisely, focusing on the most important objects, people, and actions. Avoid unnecessary details, colors, or technical jargon. Make the description clear and easy to imagine, keeping it short and to the point. If there is text, describe the general gist of the text. If there are any outstanding signs, briefly say the title/description of the sign as well.`;
