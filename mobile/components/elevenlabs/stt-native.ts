@@ -32,6 +32,9 @@ export async function startRecording(
     await Audio.setAudioModeAsync({
       allowsRecordingIOS: true,
       playsInSilentModeIOS: true,
+      staysActiveInBackground: false,
+      shouldDuckAndroid: false,
+      playThroughEarpieceAndroid: false,
     });
 
     recording = new Audio.Recording();
@@ -57,6 +60,15 @@ export async function stopRecording(): Promise<string | null> {
     await recording.stopAndUnloadAsync();
     const uri = recording.getURI();
     recording = null;
+
+    // Reset audio mode to normal playback after recording
+    await Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+      playsInSilentModeIOS: true,
+      staysActiveInBackground: false,
+      shouldDuckAndroid: false,
+      playThroughEarpieceAndroid: false,
+    });
 
     console.log("Recording saved to:", uri);
     return uri;
