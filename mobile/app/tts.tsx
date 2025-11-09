@@ -1,6 +1,7 @@
 import { useNavigation, useRoute } from '@react-navigation/native';
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useRef, useMemo, useCallback } from 'react';
+import { View, Text, TouchableOpacity, Image, StyleSheet, ScrollView, Alert, ActivityIndicator, PanResponder, GestureResponderEvent } from 'react-native';
+import Slider from '@react-native-community/slider';
 import * as Haptics from 'expo-haptics';
 import { textToSpeech } from '@/components/elevenlabs/tts';
 import { startRecording, stopRecording, requestPermissions, transcribeAudio } from '@/components/elevenlabs/stt-native';
@@ -19,6 +20,12 @@ export default function TTSScreen() {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [aiResponse, setAiResponse] = useState<string>('');
   const [isAnalyzingImage, setIsAnalyzingImage] = useState(false);
+  const [ttsSpeed, setTtsSpeed] = useState<number>(1.0);
+  const sliderWidth = useRef<number>(0);
+  const [sliderReady, setSliderReady] = useState(false);
+  const currentSpeed = useRef<number>(1.0);
+  const sliderX = useRef<number | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   console.log('TTS Screen loaded with photo:', photoUri);
 
@@ -55,10 +62,10 @@ export default function TTSScreen() {
       console.log('AI Analysis result:', result);
       setAiResponse(result);
 
-      // Speak the AI response
-      setIsSpeaking(true);
-      await textToSpeech(result);
-      setIsSpeaking(false);
+  // Speak the AI response
+  setIsSpeaking(true);
+  await textToSpeech(result, ttsSpeed);
+  setIsSpeaking(false);
 
     } catch (error) {
       console.error('Image analysis error:', error);
@@ -86,7 +93,7 @@ export default function TTSScreen() {
           if (text && text.length > 0) {
             setIsSpeaking(true);
             try {
-              await textToSpeech(text);
+              await textToSpeech(text, ttsSpeed);
             } catch (err) {
               console.error('Error speaking transcribed text after recording:', err);
             } finally {
@@ -108,7 +115,7 @@ export default function TTSScreen() {
           try {
             const msg = error instanceof Error ? error.message : String(error);
             setIsSpeaking(true);
-            await textToSpeech(`Transcription failed`);
+            await textToSpeech(`Transcription failed`, ttsSpeed);
           } catch (speakErr) {
             console.error('Error speaking transcription failure:', speakErr);
           } finally {
@@ -146,7 +153,7 @@ export default function TTSScreen() {
     
     setIsSpeaking(true);
     try {
-      await textToSpeech(transcribedText);
+      await textToSpeech(transcribedText, ttsSpeed);
     } catch (error) {
       console.error('Error speaking transcribed text:', error);
       Alert.alert('Error', 'Failed to speak the text.');
@@ -164,7 +171,7 @@ export default function TTSScreen() {
     
     setIsSpeaking(true);
     try {
-      await textToSpeech(aiResponse);
+      await textToSpeech(aiResponse, ttsSpeed);
     } catch (error) {
       console.error('Error speaking AI response:', error);
       Alert.alert('Error', 'Failed to speak the response.');
@@ -172,6 +179,102 @@ export default function TTSScreen() {
       setIsSpeaking(false);
     }
   };
+
+  // Handle slider value complete - announce the speed
+  const handleSliderComplete = async (value: number) => {
+    try {
+      await Haptics.selectionAsync();
+    } catch (e) {}
+    
+    const speedPercent = Math.round(value * 100);
+    let announcement: string;
+    
+    // Check if at min or max
+    if (value <= 0.7) {
+      announcement = `Speed set to the minimum speed of ${speedPercent} percent`;
+    } else if (value >= 1.2) {
+      announcement = `Speed set to the maximum speed of ${speedPercent} percent`;
+    } else {
+      announcement = `Speed set to ${speedPercent} percent`;
+    }
+    
+    setIsSpeaking(true);
+    try {
+      await textToSpeech(announcement, value);
+    } catch (error) {
+      console.error('Error announcing speed:', error);
+    } finally {
+      setIsSpeaking(false);
+    }
+  };
+
+  // Update slider value from touch position
+  const updateSliderValue = useCallback((evt: GestureResponderEvent) => {
+    if (!sliderWidth.current || sliderX.current === null) return;
+    
+    // Use pageX to get absolute position, subtract slider's absolute X position
+    // The thumb is 60px wide and centered with translateX(-30), so touch position is already at center
+    const touch = evt.nativeEvent.pageX - sliderX.current;
+    const percentage = Math.max(0, Math.min(1, touch / sliderWidth.current));
+    const newValue = 0.7 + (percentage * (1.2 - 0.7));
+    const roundedValue = Math.round(newValue / 0.05) * 0.05;
+    const clampedValue = Math.max(0.7, Math.min(1.2, roundedValue));
+    currentSpeed.current = clampedValue;
+    setTtsSpeed(clampedValue);
+  }, []);
+
+  // Handle slider release
+  const handleSliderRelease = useCallback(async () => {
+    const value = currentSpeed.current;
+    try {
+      await Haptics.selectionAsync();
+    } catch (e) {}
+    
+    const speedPercent = Math.round(value * 100);
+    let announcement: string;
+    
+    // Check if at min or max
+    if (value <= 0.7) {
+      announcement = `Speed set to the minimum speed of ${speedPercent} percent`;
+    } else if (value >= 1.2) {
+      announcement = `Speed set to the maximum speed of ${speedPercent} percent`;
+    } else {
+      announcement = `Speed set to ${speedPercent} percent`;
+    }
+    
+    setIsSpeaking(true);
+    try {
+      await textToSpeech(announcement, value);
+    } catch (error) {
+      console.error('Error announcing speed:', error);
+    } finally {
+      setIsSpeaking(false);
+    }
+  }, []);
+
+  // Create PanResponder for draggable slider
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => !isSpeaking,
+        onMoveShouldSetPanResponder: () => !isSpeaking,
+        onPanResponderGrant: (evt) => {
+          if (isSpeaking) return;
+          setIsDragging(true);
+          updateSliderValue(evt);
+        },
+        onPanResponderMove: (evt) => {
+          if (isSpeaking) return;
+          updateSliderValue(evt);
+        },
+        onPanResponderRelease: () => {
+          if (isSpeaking) return;
+          setIsDragging(false);
+          handleSliderRelease();
+        },
+      }),
+    [isSpeaking, updateSliderValue, handleSliderRelease]
+  );
 
   return (
       <ScrollView style={styles.container}>
@@ -212,6 +315,32 @@ export default function TTSScreen() {
                 <Text style={styles.squareActionLabel}>Analyze</Text>
               </TouchableOpacity>
             </View>
+
+            {/* Speed slider */}
+            <View style={styles.speedSliderContainer}>
+              {/* Custom thick progress bar slider */}
+              <View
+                {...panResponder.panHandlers}
+                style={[styles.sliderTrack, isSpeaking && { opacity: 0.5 }]}
+                onLayout={(event) => {
+                  event.currentTarget.measure((x, y, width, height, pageX, pageY) => {
+                    if (width > 0) {
+                      sliderWidth.current = width;
+                      sliderX.current = pageX;
+                      setSliderReady(true);
+                    }
+                  });
+                }}
+              >
+                {sliderWidth.current > 0 && (
+                  <>
+                    <View style={[styles.sliderProgress, { width: ((ttsSpeed - 0.7) / (1.2 - 0.7)) * sliderWidth.current }]} />
+                    <View style={[styles.sliderThumb, { left: ((ttsSpeed - 0.7) / (1.2 - 0.7)) * sliderWidth.current }]} />
+                  </>
+                )}
+              </View>
+            </View>
+
             {isTranscribing && (
               <View style={styles.processingContainer}>
                 <ActivityIndicator size="small" color="#007AFF" />
@@ -504,5 +633,58 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#fff',
+  },
+  /* Speed slider styles */
+  speedSliderContainer: {
+    marginTop: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 40,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#5E17EB',
+  },
+  speedLabel: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  sliderTrack: {
+    width: '100%',
+    height: 50,
+    backgroundColor: '#d3d3d3',
+    borderRadius: 25,
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  sliderProgress: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    height: '100%',
+    backgroundColor: '#5E17EB',
+    borderRadius: 25,
+  },
+  sliderThumb: {
+    position: 'absolute',
+    top: -5,
+    width: 60,
+    height: 60,
+    backgroundColor: '#fff',
+    borderRadius: 30,
+    transform: [{ translateX: -30 }],
+    borderWidth: 4,
+    borderColor: '#5E17EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  slider: {
+    width: '100%',
+    height: 80,
   },
 });

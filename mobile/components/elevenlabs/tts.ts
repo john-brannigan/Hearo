@@ -33,23 +33,27 @@ function uint8ArrayToBase64(u8Arr: Uint8Array): string {
   return global.btoa(result);
 }
 
-export async function textToSpeech(text: string): Promise<string> {
+export async function textToSpeech(text: string, speed: number): Promise<string> {
   try {
-    const fileUri = await textToSpeechElevenLabs(text);
+    const fileUri = await textToSpeechElevenLabs(text, speed);
     return fileUri;
   } catch (error) {
     console.warn("⚠️ ElevenLabs failed, falling back to native:", error);
-    await textToSpeechNative(text);
+    await textToSpeechNative(text, speed);
     return "native";
   }
 }
 
-async function textToSpeechElevenLabs(text: string): Promise<string> {
+async function textToSpeechElevenLabs(text: string, speed: number): Promise<string> {
   const headers: HeadersInit = {
     Accept: "audio/mpeg",
     "Content-Type": "application/json",
     "xi-api-key": ELEVENLABS_API_KEY,
   };
+
+  // Clamp speed between 0.25 and 4.0 (ElevenLabs API range)
+  const clampedSpeed = Math.max(0.7, Math.min(1.2, speed));
+  console.log(clampedSpeed);
 
   const response = await fetch(
     `https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`,
@@ -59,7 +63,16 @@ async function textToSpeechElevenLabs(text: string): Promise<string> {
       body: JSON.stringify({
         text,
         model_id: ELEVENLABS_MODEL,
-        voice_settings: { stability: 0.5, similarity_boost: 0.5 },
+        voice_settings: {
+          stability: 0.5,
+          similarity_boost: 0.5,  // Pass speed to ElevenLabs API
+          speed: clampedSpeed,
+        },
+        // conversation_config: {
+        //   tts: {
+        //     speed: clampedSpeed
+        //   }
+        // }
       }),
     }
   );
@@ -80,7 +93,7 @@ async function textToSpeechElevenLabs(text: string): Promise<string> {
 
   await FileSystem.writeAsStringAsync(fileUri, base64Audio, { encoding: "base64" });
 
-  // Play audio using expo-audio
+  // Play audio at normal speed - the speed adjustment is already in the audio file
   const playbackObject = new Audio.Sound();
   await playbackObject.loadAsync({ uri: fileUri });
   await playbackObject.playAsync();
@@ -88,8 +101,10 @@ async function textToSpeechElevenLabs(text: string): Promise<string> {
   return fileUri;
 }
 
-async function textToSpeechNative(text: string): Promise<void> {
+async function textToSpeechNative(text: string, speed: number = 1.0): Promise<void> {
   return new Promise((resolve) => {
-    Speech.speak(text, { onDone: resolve, language: "en" });
+    // expo-speech rate parameter (typically 0.5 to 2.0)
+    const rate = Math.max(0.5, Math.min(2.0, speed));
+    Speech.speak(text, { onDone: resolve, language: "en", rate });
   });
 }
